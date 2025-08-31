@@ -266,7 +266,7 @@ function InvoiceCard({ invoice, onView, onEdit, onDelete, onSend, onDownload }: 
 function StatsCard({ title, value, icon: Icon, color, subtitle }: {
   title: string;
   value: string | number;
-  icon: any;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
   color: string;
   subtitle?: string;
 }) {
@@ -338,7 +338,7 @@ export default function InvoicingPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveInvoice = (formData: any) => {
+  const handleSaveInvoice = (formData: Partial<Invoice>) => {
     if (editingInvoice) {
       // Update existing invoice
       setInvoices(invoices.map(inv => 

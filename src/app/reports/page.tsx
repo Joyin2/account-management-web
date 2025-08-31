@@ -31,6 +31,22 @@ interface FinancialMetric {
   trend: 'up' | 'down' | 'neutral';
 }
 
+interface GeneratedReportData {
+  type: string;
+  period: string;
+  data: Record<string, any>;
+  generatedAt: string;
+}
+
+interface GSTData {
+  period: string;
+  sales: number;
+  purchases: number;
+  outputTax: number;
+  inputTax: number;
+  netTax: number;
+}
+
 const ReportCard: React.FC<{
   report: ReportData;
   onView: (id: string) => void;
@@ -152,7 +168,7 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<ReportData[]>([]);
   const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState('P&L');
-  const [generatedReportData, setGeneratedReportData] = useState<any>(null);
+  const [generatedReportData, setGeneratedReportData] = useState<GeneratedReportData | null>(null);
   const [showGSTCalculator, setShowGSTCalculator] = useState(false);
 
   // Sample data
@@ -234,7 +250,7 @@ export default function ReportsPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveReport = (reportData: any) => {
+  const handleSaveReport = (reportData: Partial<ReportData>) => {
     if (editingReport) {
       // Update existing report
       console.log('Updating report:', editingReport.id, reportData);
@@ -258,7 +274,7 @@ export default function ReportsPage() {
     setEditingReport(null);
   };
 
-  const handleGenerateFinancialReport = (reportData: any) => {
+  const handleGenerateFinancialReport = (reportData: GeneratedReportData) => {
     setGeneratedReportData(reportData);
     console.log('Generated financial report:', reportData);
   };

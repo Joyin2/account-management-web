@@ -119,7 +119,7 @@ interface SummaryCardProps {
   amount: number;
   type: 'credit' | 'debit' | 'balance';
   change?: number;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
 }
 
 function SummaryCard({ title, amount, type, change, icon: Icon }: SummaryCardProps) {
@@ -228,7 +228,7 @@ export default function AccountingPage() {
     setIsFormOpen(true);
   };
 
-  const handleSubmitTransaction = async (formData: any) => {
+  const handleSubmitTransaction = async (formData: { type: string; date: string; amount: number; description?: string; category?: string; account?: string; reference?: string; [key: string]: unknown }) => {
     try {
       setLoading(true);
       

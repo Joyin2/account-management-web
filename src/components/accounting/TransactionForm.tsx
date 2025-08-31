@@ -11,11 +11,22 @@ import CapitalDrawingsTransactionForm from './CapitalDrawingsTransactionForm';
 import BankTransactionForm from './BankTransactionForm';
 import LoanTransactionForm from './LoanTransactionForm';
 
+interface TransactionFormData {
+  type: TransactionType;
+  date: string;
+  amount: number;
+  description?: string;
+  category?: string;
+  account?: string;
+  reference?: string;
+  [key: string]: unknown;
+}
+
 interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  editData?: any;
+  onSubmit: (data: TransactionFormData) => void;
+  editData?: TransactionFormData;
 }
 
 type TransactionType = 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN';

@@ -340,7 +340,7 @@ function TransactionRow({ transaction, onReconcile, onView, onEdit }: {
 function StatsCard({ title, value, icon: Icon, color, subtitle }: {
   title: string;
   value: string | number;
-  icon: any;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
   color: string;
   subtitle?: string;
 }) {
@@ -480,7 +480,7 @@ export default function BankingPage() {
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'accounts' | 'transactions' | 'reconciliation')}
                     className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
