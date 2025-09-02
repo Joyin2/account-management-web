@@ -30,8 +30,8 @@ interface InventoryFormData {
   category: string;
   description?: string;
   currentStock: number;
-  minStock: number;
-  maxStock: number;
+  minimumStock: number;
+  maximumStock: number;
   unitPrice: number;
   costPrice: number;
   supplier: string;
@@ -85,8 +85,8 @@ export default function InventoryForm({
     sku: '',
     category: '',
     currentStock: 0,
-    minStock: 0,
-    maxStock: 0,
+    minimumStock: 0,
+    maximumStock: 0,
     unitPrice: 0,
     costPrice: 0,
     supplier: '',
@@ -109,11 +109,11 @@ export default function InventoryForm({
     if (!formData.category) {
       newErrors.category = 'Category is required';
     }
-    if (formData.minStock < 0) {
-      newErrors.minStock = 'Minimum stock cannot be negative';
+    if (formData.minimumStock < 0) {
+      newErrors.minimumStock = 'Minimum stock cannot be negative';
     }
-    if (formData.maxStock <= formData.minStock) {
-      newErrors.maxStock = 'Maximum stock must be greater than minimum stock';
+    if (formData.maximumStock <= formData.minimumStock) {
+      newErrors.maximumStock = 'Maximum stock must be greater than minimum stock';
     }
     if (formData.unitPrice < 0) {
       newErrors.unitPrice = 'Unit price cannot be negative';
@@ -309,14 +309,13 @@ export default function InventoryForm({
                 <input
                   type="number"
                   min="0"
-                  value={formData.minStock}
-                  onChange={(e) => handleInputChange('minStock', parseInt(e.target.value) || 0)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.minStock ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="0"
-                />
-                {errors.minStock && <p className="text-red-500 text-sm mt-1">{errors.minStock}</p>}
+                  value={formData.minimumStock}
+                onChange={(e) => handleInputChange('minimumStock', parseInt(e.target.value) || 0)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.minimumStock ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.minimumStock && <p className="text-red-500 text-sm mt-1">{errors.minimumStock}</p>}
               </div>
 
               <div>
@@ -326,14 +325,13 @@ export default function InventoryForm({
                 <input
                   type="number"
                   min="0"
-                  value={formData.maxStock}
-                  onChange={(e) => handleInputChange('maxStock', parseInt(e.target.value) || 0)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.maxStock ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="0"
-                />
-                {errors.maxStock && <p className="text-red-500 text-sm mt-1">{errors.maxStock}</p>}
+                  value={formData.maximumStock}
+                onChange={(e) => handleInputChange('maximumStock', parseInt(e.target.value) || 0)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.maximumStock ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.maximumStock && <p className="text-red-500 text-sm mt-1">{errors.maximumStock}</p>}
               </div>
             </div>
           </div>

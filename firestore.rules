@@ -1,0 +1,949 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =============================================================================
+    // HELPER FUNCTIONS
+    // =============================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if user is accessing their own organization data
+    function isOrgMember(orgId) {
+      // Currently using user UID as org ID - allow if user is authenticated and orgId matches their UID
+      return request.auth != null && request.auth.uid == orgId;
+    }
+    
+    // Helper function to check if required user profile fields exist
+    function hasUserProfileFields() {
+      return 'uid' in request.resource.data &&
+             'email' in request.resource.data &&
+             'fullName' in request.resource.data &&
+             'phone' in request.resource.data &&
+             'businessType' in request.resource.data &&
+             'createdAt' in request.resource.data &&
+             'updatedAt' in request.resource.data;
+    }
+    
+    // Helper function to check if required transaction fields exist
+    function hasTransactionFields() {
+      return 'date' in request.resource.data &&
+             'type' in request.resource.data &&
+             'amount' in request.resource.data &&
+             'description' in request.resource.data &&
+             'paymentMethod' in request.resource.data &&
+             'gstApplicable' in request.resource.data &&
+             'userId' in request.resource.data &&
+             'organizationId' in request.resource.data &&
+             'createdAt' in request.resource.data &&
+             'updatedAt' in request.resource.data;
+    }
+    
+    // Check if field is a valid timestamp
+    function isValidTimestamp(field) {
+      return field is timestamp;
+    }
+    
+    // Check if field is a valid number and positive
+    function isPositiveNumber(field) {
+      return field is number && field > 0;
+    }
+    
+    // Check if field is a valid string with minimum length
+    function isValidString(field, minLength) {
+      return field is string && field.size() >= minLength;
+    }
+    
+    // Check if email is valid format
+    function isValidEmail(email) {
+      return email is string && email.matches('.*@.*\\..*');
+    }
+    
+    // Check if business type is valid
+    function isValidBusinessType(businessType) {
+      return businessType == 'manufacturer' || businessType == 'restaurant' || businessType == 'retailer' || 
+             businessType == 'trader' || businessType == 'professional' || businessType == 'consultancy' || 
+             businessType == 'farmer' || businessType == 'distributor' || businessType == 'wholesaler' || 
+             businessType == 'service_provider' || businessType == 'accountant' || businessType == 'general';
+    }
+    
+    // Check if transaction type is valid
+    function isValidTransactionType(type) {
+      return type == 'BUY' || type == 'SELL' || type == 'EXPENDITURE' || type == 'CAPITAL_DRAWINGS' || type == 'BANK' || type == 'LOAN' || type == 'SALES' || type == 'PURCHASES';
+    }
+    
+    // Check if report type is valid
+    function isValidReportType(reportType) {
+      return reportType == 'ledger' || reportType == 'journal' || reportType == 'trial-balance' || 
+             reportType == 'balance-sheet' || reportType == 'profit-loss' || reportType == 'cash-flow' || 
+             reportType == 'gst-return';
+    }
+    
+    // Check if account type filter is valid
+    function isValidAccountType(accountType) {
+      return accountType == 'all' || accountType == 'assets' || accountType == 'liabilities' || 
+             accountType == 'equity' || accountType == 'revenue' || accountType == 'expenses';
+    }
+    
+    // Check if inventory category is valid
+    function isValidInventoryCategory(category) {
+      return category == 'raw-materials' || category == 'components' || category == 'finished-goods' || 
+             category == 'packaging' || category == 'tools' || category == 'office-supplies' || 
+             category == 'other';
+    }
+    
+    // Check if unit of measurement is valid
+    function isValidUnit(unit) {
+      return unit == 'pcs' || unit == 'kg' || unit == 'gm' || unit == 'ltr' || 
+             unit == 'ml' || unit == 'mtr' || unit == 'cm' || unit == 'sqft' || 
+             unit == 'box' || unit == 'pack';
+    }
+    
+    // Check if stock movement type is valid
+    function isValidMovementType(type) {
+      return type == 'in' || type == 'out' || type == 'adjustment';
+    }
+    
+    // Helper function to check if required inventory fields exist
+    function hasInventoryFields() {
+      return 'name' in request.resource.data &&
+             'sku' in request.resource.data &&
+             'category' in request.resource.data &&
+             'unit' in request.resource.data &&
+             'currentStock' in request.resource.data &&
+             'minimumStock' in request.resource.data &&
+             'maximumStock' in request.resource.data &&
+             'unitPrice' in request.resource.data &&
+             'costPrice' in request.resource.data &&
+             'supplier' in request.resource.data &&
+             'location' in request.resource.data &&
+             'userId' in request.resource.data &&
+             'createdAt' in request.resource.data &&
+             'updatedAt' in request.resource.data;
+    }
+    
+    // Helper function to check if required stock movement fields exist
+    function hasStockMovementFields() {
+      return 'type' in request.resource.data &&
+             'quantity' in request.resource.data &&
+             'reason' in request.resource.data &&
+             'userId' in request.resource.data &&
+             'createdAt' in request.resource.data &&
+             'itemId' in request.resource.data &&
+             'itemName' in request.resource.data &&
+             'itemSku' in request.resource.data &&
+             'previousStock' in request.resource.data &&
+             'newStock' in request.resource.data;
+    }
+    
+    // Check if payment method is valid
+    function isValidPaymentMethod(method) {
+      return method == 'Cash' || method == 'Bank' || method == 'Credit' || method == 'UPI' || method == 'Card' || method == 'Cheque' || method == 'NEFT' || method == 'RTGS';
+    }
+    
+    // Check if GST type is valid
+    function isValidGSTType(gstType) {
+      return gstType == 'Regular' || gstType == 'Composite';
+    }
+    
+    // =============================================================================
+    // USER PROFILES COLLECTION
+    // =============================================================================
+    
+    match /users/{userId} {
+      // Allow read if user is authenticated and accessing their own profile
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Allow create during signup with proper validation
+      allow create: if isAuthenticated() 
+        && isOwner(userId)
+        && hasUserProfileFields()
+        && request.resource.data.uid == request.auth.uid
+        && isValidEmail(request.resource.data.email)
+        && isValidString(request.resource.data.fullName, 2)
+        && isValidString(request.resource.data.phone, 10)
+        && isValidBusinessType(request.resource.data.businessType)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+      
+      // Allow update of own profile with validation
+      allow update: if isAuthenticated() 
+        && isOwner(userId)
+        && request.resource.data.uid == resource.data.uid // UID cannot be changed
+        && request.resource.data.email == resource.data.email // Email cannot be changed
+        && request.resource.data.createdAt == resource.data.createdAt // CreatedAt cannot be changed
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.updatedAt > resource.data.updatedAt; // UpdatedAt must be newer
+      
+      // Prevent deletion of user profiles
+      allow delete: if false;
+    }
+    
+    // =============================================================================
+    // TRANSACTIONS COLLECTION
+    // =============================================================================
+    
+    match /transactions/{transactionId} {
+      // Allow read if user is authenticated and owns the transaction
+      allow read: if isAuthenticated() 
+        && (isOwner(resource.data.userId) || isOrgMember(resource.data.organizationId));
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && isOwner(request.resource.data.userId)
+        && isOrgMember(request.resource.data.organizationId)
+        && hasTransactionFields()
+        && isValidTimestamp(request.resource.data.date)
+        && isValidTransactionType(request.resource.data.type)
+        && isPositiveNumber(request.resource.data.amount)
+        && isValidString(request.resource.data.description, 1)
+        && isValidPaymentMethod(request.resource.data.paymentMethod)
+        && request.resource.data.gstApplicable is bool
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // GST validation - allow gstType to be optional when gstApplicable is false
+        && (request.resource.data.gstApplicable == false || 
+            (request.resource.data.gstApplicable == true && 
+             (!('gstType' in request.resource.data) || isValidGSTType(request.resource.data.gstType))))
+        // Amount validation based on transaction type
+        && (request.resource.data.type != 'EXPENDITURE' || request.resource.data.amount > 0)
+        // Interest rate validation for loans - make interestRate optional
+        && (request.resource.data.type != 'LOAN' || 
+            (!('interestRate' in request.resource.data) || 
+             (request.resource.data.interestRate is number && 
+              request.resource.data.interestRate >= 0 && 
+              request.resource.data.interestRate <= 100)));
+      
+      // Allow update with validation
+      allow update: if isAuthenticated()
+        && (isOwner(resource.data.userId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.userId == resource.data.userId // User cannot be changed
+        && request.resource.data.organizationId == resource.data.organizationId // Org cannot be changed
+        && request.resource.data.createdAt == resource.data.createdAt // CreatedAt cannot be changed
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.updatedAt > resource.data.updatedAt; // UpdatedAt must be newer
+      
+      // Allow delete only by owner
+      allow delete: if isAuthenticated() 
+        && (isOwner(resource.data.userId) || isOrgMember(resource.data.organizationId));
+    }
+    
+    // =============================================================================
+    // ORGANIZATIONS COLLECTION AND SUB-COLLECTIONS
+    // =============================================================================
+    
+    match /organizations/{orgId} {
+      // Allow read/write if user is organization member
+      allow read, write: if isAuthenticated() && isOrgMember(orgId);
+      
+      // =============================================================================
+      // ACCOUNTING SUB-COLLECTIONS
+      // =============================================================================
+      
+      match /accounting/buy/{buyId} {
+         allow read, write: if isAuthenticated() 
+           && isOrgMember(orgId)
+           && (request.resource == null || 
+               ('date' in request.resource.data &&
+                'type' in request.resource.data &&
+                'amount' in request.resource.data &&
+                'vendorName' in request.resource.data &&
+                'paymentMethod' in request.resource.data &&
+                'userId' in request.resource.data &&
+                'createdAt' in request.resource.data &&
+                isValidTimestamp(request.resource.data.date) &&
+                isPositiveNumber(request.resource.data.amount) &&
+                isValidString(request.resource.data.type, 1) &&
+                isValidPaymentMethod(request.resource.data.paymentMethod) &&
+                isOwner(request.resource.data.userId)));
+       }
+      
+      match /accounting/sell/{sellId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'type' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'buyerName' in request.resource.data &&
+               'paymentMethod' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               isPositiveNumber(request.resource.data.amount) &&
+               isValidString(request.resource.data.type, 1) &&
+               isValidPaymentMethod(request.resource.data.paymentMethod) &&
+               isOwner(request.resource.data.userId)));
+      }
+      
+      match /accounting/expenditure/{expenseId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'expenseType' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'paidTo' in request.resource.data &&
+               'paymentMethod' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               isPositiveNumber(request.resource.data.amount) &&
+               isValidString(request.resource.data.expenseType, 1) &&
+               isValidString(request.resource.data.paidTo, 1) &&
+               isValidPaymentMethod(request.resource.data.paymentMethod) &&
+               isOwner(request.resource.data.userId)));
+      }
+      
+      match /accounting/capital/{capitalId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'type' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'partnerOwner' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               request.resource.data.amount is number &&
+               isValidString(request.resource.data.type, 1) &&
+               isValidString(request.resource.data.partnerOwner, 1) &&
+               isOwner(request.resource.data.userId)));
+      }
+      
+      match /accounting/bank/{bankId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'bankAccount' in request.resource.data &&
+               'transactionType' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               isPositiveNumber(request.resource.data.amount) &&
+               isValidString(request.resource.data.bankAccount, 1) &&
+               isValidString(request.resource.data.transactionType, 1) &&
+               isOwner(request.resource.data.userId)));
+      }
+      
+      match /accounting/loan/{loanId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'loanProvider' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'interestRate' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               isPositiveNumber(request.resource.data.amount) &&
+               isValidString(request.resource.data.loanProvider, 1) &&
+               request.resource.data.interestRate is number &&
+               request.resource.data.interestRate >= 0 &&
+               request.resource.data.interestRate <= 100 &&
+               isOwner(request.resource.data.userId)));
+      }
+      
+      // =============================================================================
+      // INVENTORY SUB-COLLECTION
+      // =============================================================================
+      
+      match /inventory/{itemId} {
+        // Allow read if user is authenticated and is organization member
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        
+        // Allow create with comprehensive validation
+        allow create: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && hasInventoryFields()
+          && isValidString(request.resource.data.name, 1)
+          && isValidString(request.resource.data.sku, 1)
+          && isValidInventoryCategory(request.resource.data.category)
+          && isValidUnit(request.resource.data.unit)
+          && request.resource.data.currentStock is number
+          && request.resource.data.currentStock >= 0
+          && request.resource.data.minimumStock is number
+          && request.resource.data.minimumStock >= 0
+          && request.resource.data.maximumStock is number
+          && request.resource.data.maximumStock >= request.resource.data.minimumStock
+          && request.resource.data.unitPrice is number
+          && request.resource.data.unitPrice >= 0
+          && request.resource.data.costPrice is number
+          && request.resource.data.costPrice >= 0
+          && isValidString(request.resource.data.supplier, 1)
+          && isValidString(request.resource.data.location, 1)
+          && isOwner(request.resource.data.userId)
+          && isValidTimestamp(request.resource.data.createdAt)
+          && isValidTimestamp(request.resource.data.updatedAt)
+          // Optional fields validation
+          && (!('description' in request.resource.data) || request.resource.data.description is string)
+          && (!('barcode' in request.resource.data) || request.resource.data.barcode is string)
+          && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+          && (!('imageUrls' in request.resource.data) || request.resource.data.imageUrls is list);
+        
+        // Allow update with validation
+        allow update: if isAuthenticated()
+          && isOrgMember(orgId)
+          && isOwner(resource.data.userId)
+          && request.resource.data.userId == resource.data.userId // User cannot be changed
+          && request.resource.data.sku == resource.data.sku // SKU cannot be changed
+          && request.resource.data.createdAt == resource.data.createdAt // CreatedAt cannot be changed
+          && isValidTimestamp(request.resource.data.updatedAt)
+          && request.resource.data.updatedAt > resource.data.updatedAt; // UpdatedAt must be newer
+        
+        // Allow delete only by owner
+        allow delete: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && isOwner(resource.data.userId);
+        
+        // Stock movements sub-collection
+        match /stockMovements/{movementId} {
+          // Allow read if user is authenticated and is organization member
+          allow read: if isAuthenticated() && isOrgMember(orgId);
+          
+          // Allow create with validation
+          allow create: if isAuthenticated() 
+            && isOrgMember(orgId)
+            && hasStockMovementFields()
+            && isValidMovementType(request.resource.data.type)
+            && request.resource.data.quantity is number
+            && request.resource.data.quantity != 0
+            && isValidString(request.resource.data.reason, 1)
+            && isOwner(request.resource.data.userId)
+            && isValidTimestamp(request.resource.data.createdAt)
+            // Optional fields validation
+            && (!('reference' in request.resource.data) || isValidString(request.resource.data.reference, 1))
+            && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+            && (!('previousStock' in request.resource.data) || request.resource.data.previousStock is number)
+            && (!('newStock' in request.resource.data) || request.resource.data.newStock is number);
+          
+          // Prevent update and delete of stock movements for audit trail
+          allow update, delete: if false;
+        }
+      }
+      
+      // =============================================================================
+      // INVOICES SUB-COLLECTION
+      // =============================================================================
+      
+      match /invoices/{invoiceId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('invoiceNumber' in request.resource.data &&
+               'date' in request.resource.data &&
+               'customerName' in request.resource.data &&
+               'lineItems' in request.resource.data &&
+               'totalAmount' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidString(request.resource.data.invoiceNumber, 1) &&
+               isValidTimestamp(request.resource.data.date) &&
+               isValidString(request.resource.data.customerName, 1) &&
+               request.resource.data.lineItems is list &&
+               request.resource.data.lineItems.size() > 0 &&
+               isPositiveNumber(request.resource.data.totalAmount) &&
+               isOwner(request.resource.data.userId) &&
+               isValidTimestamp(request.resource.data.createdAt)));
+      }
+      
+      // =============================================================================
+      // BANKING SUB-COLLECTION
+      // =============================================================================
+      
+      match /banking/{bankingId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('date' in request.resource.data &&
+               'bankAccount' in request.resource.data &&
+               'description' in request.resource.data &&
+               'amount' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidTimestamp(request.resource.data.date) &&
+               isValidString(request.resource.data.bankAccount, 1) &&
+               isValidString(request.resource.data.description, 1) &&
+               request.resource.data.amount is number &&
+               isOwner(request.resource.data.userId) &&
+               isValidTimestamp(request.resource.data.createdAt)));
+      }
+      
+      // =============================================================================
+      // REPORTS SUB-COLLECTION
+      // =============================================================================
+      
+      match /reports/{reportId} {
+        // Allow read for organization members
+        allow read: if isAuthenticated() && isOrgMember(orgId);
+        
+        // Allow create with comprehensive validation
+        allow create: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && 'reportType' in request.resource.data
+          && 'generatedDate' in request.resource.data
+          && 'parameters' in request.resource.data
+          && 'userId' in request.resource.data
+          && 'createdAt' in request.resource.data
+          && isValidReportType(request.resource.data.reportType)
+          && isValidTimestamp(request.resource.data.generatedDate)
+          && request.resource.data.parameters is map
+          && isOwner(request.resource.data.userId)
+          && isValidTimestamp(request.resource.data.createdAt)
+          // Validate report parameters
+          && (!('dateFrom' in request.resource.data.parameters) || request.resource.data.parameters.dateFrom is string)
+          && (!('dateTo' in request.resource.data.parameters) || request.resource.data.parameters.dateTo is string)
+          && (!('accountTypeFilter' in request.resource.data.parameters) || isValidAccountType(request.resource.data.parameters.accountTypeFilter))
+          && (!('minAmount' in request.resource.data.parameters) || (request.resource.data.parameters.minAmount is number && request.resource.data.parameters.minAmount >= 0))
+          && (!('maxAmount' in request.resource.data.parameters) || (request.resource.data.parameters.maxAmount is number && request.resource.data.parameters.maxAmount >= 0))
+          && (!('selectedAccount' in request.resource.data.parameters) || request.resource.data.parameters.selectedAccount is string);
+        
+        // Allow update by owner with validation
+        allow update: if isAuthenticated()
+          && isOrgMember(orgId)
+          && isOwner(resource.data.userId)
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.createdAt == resource.data.createdAt;
+        
+        // Allow delete by owner
+        allow delete: if isAuthenticated()
+          && isOrgMember(orgId)
+          && isOwner(resource.data.userId);
+      }
+      
+      // =============================================================================
+      // SPECIAL SERVICES SUB-COLLECTIONS (Business Type Specific)
+      // =============================================================================
+      
+      // Bill of Materials (for Manufacturers)
+      match /bom/{bomId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('productName' in request.resource.data &&
+               'materials' in request.resource.data &&
+               'totalCost' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidString(request.resource.data.productName, 1) &&
+               request.resource.data.materials is list &&
+               request.resource.data.materials.size() > 0 &&
+               isPositiveNumber(request.resource.data.totalCost) &&
+               isOwner(request.resource.data.userId) &&
+               isValidTimestamp(request.resource.data.createdAt)));
+      }
+      
+      // Job Cards (for Service Providers)
+      match /jobCards/{jobId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('jobNumber' in request.resource.data &&
+               'customerName' in request.resource.data &&
+               'serviceType' in request.resource.data &&
+               'status' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidString(request.resource.data.jobNumber, 1) &&
+               isValidString(request.resource.data.customerName, 1) &&
+               isValidString(request.resource.data.serviceType, 1) &&
+               request.resource.data.status in ['pending', 'in_progress', 'completed', 'cancelled'] &&
+               isOwner(request.resource.data.userId) &&
+               isValidTimestamp(request.resource.data.createdAt)));
+      }
+      
+      // Crop Tracking (for Farmers)
+      match /crops/{cropId} {
+        allow read, write: if isAuthenticated() 
+          && isOrgMember(orgId)
+          && (request.resource == null || 
+              ('cropName' in request.resource.data &&
+               'plantingDate' in request.resource.data &&
+               'expectedHarvest' in request.resource.data &&
+               'area' in request.resource.data &&
+               'userId' in request.resource.data &&
+               'createdAt' in request.resource.data &&
+               isValidString(request.resource.data.cropName, 1) &&
+               isValidTimestamp(request.resource.data.plantingDate) &&
+               isValidTimestamp(request.resource.data.expectedHarvest) &&
+               isPositiveNumber(request.resource.data.area) &&
+               isOwner(request.resource.data.userId) &&
+               isValidTimestamp(request.resource.data.createdAt)));
+      }
+    }
+    
+    // =============================================================================
+    // USER-LEVEL INVENTORY COLLECTION
+    // =============================================================================
+    
+    match /users/{userId}/inventory/{itemId} {
+      // Allow read if user is authenticated and accessing their own inventory
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated() 
+        && request.auth.uid == userId
+        && hasInventoryFields()
+        && isValidString(request.resource.data.name, 1)
+        && isValidString(request.resource.data.sku, 1)
+        && isValidInventoryCategory(request.resource.data.category)
+        && isValidUnit(request.resource.data.unit)
+        && request.resource.data.currentStock is number
+        && request.resource.data.currentStock >= 0
+        && request.resource.data.minimumStock is number
+        && request.resource.data.minimumStock >= 0
+        && request.resource.data.maximumStock is number
+        && request.resource.data.maximumStock >= request.resource.data.minimumStock
+        && request.resource.data.unitPrice is number
+        && request.resource.data.unitPrice >= 0
+        && request.resource.data.costPrice is number
+        && request.resource.data.costPrice >= 0
+        && isValidString(request.resource.data.supplier, 1)
+        && isValidString(request.resource.data.location, 1)
+        && request.resource.data.userId == request.auth.uid
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // Optional fields validation
+        && (!('description' in request.resource.data) || request.resource.data.description is string)
+        && (!('barcode' in request.resource.data) || request.resource.data.barcode is string)
+        && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+        && (!('imageUrls' in request.resource.data) || request.resource.data.imageUrls is list);
+      
+      // Allow update with validation
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId // User cannot be changed
+        && request.resource.data.sku == resource.data.sku // SKU cannot be changed
+        && request.resource.data.createdAt == resource.data.createdAt // CreatedAt cannot be changed
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.updatedAt > resource.data.updatedAt; // UpdatedAt must be newer
+      
+      // Allow delete only by owner
+      allow delete: if isAuthenticated() && request.auth.uid == userId && resource.data.userId == request.auth.uid;
+      
+      // Stock movements sub-collection
+      match /stockMovements/{movementId} {
+        // Allow read if user is authenticated and accessing their own data
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        
+        // Allow create with validation
+        allow create: if isAuthenticated() 
+          && request.auth.uid == userId
+          && hasStockMovementFields()
+          && isValidMovementType(request.resource.data.type)
+          && request.resource.data.quantity is number
+          && request.resource.data.quantity != 0
+          && isValidString(request.resource.data.reason, 1)
+          && request.resource.data.userId == request.auth.uid
+          && isValidTimestamp(request.resource.data.createdAt)
+          // Optional fields validation
+          && (!('reference' in request.resource.data) || isValidString(request.resource.data.reference, 1))
+          && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+          && (!('previousStock' in request.resource.data) || request.resource.data.previousStock is number)
+          && (!('newStock' in request.resource.data) || request.resource.data.newStock is number);
+        
+        // Prevent update and delete of stock movements for audit trail
+        allow update, delete: if false;
+      }
+    }
+    
+    // =============================================================================
+    // AUDIT LOGS COLLECTION (Read-only for users, write-only for system)
+    // =============================================================================
+    
+    match /auditLogs/{logId} {
+      // Users can only read their own audit logs
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Allow create with proper validation
+      allow create: if isAuthenticated() 
+        && 'action' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'timestamp' in request.resource.data
+        && 'details' in request.resource.data
+        && isOwner(request.resource.data.userId)
+        && isValidString(request.resource.data.action, 1)
+        && isValidTimestamp(request.resource.data.timestamp);
+      
+      // Prevent update and delete from client
+      allow update, delete: if false;
+    }
+    
+    // =============================================================================
+    // TOP-LEVEL ACCOUNTING COLLECTION (For Reports)
+    // =============================================================================
+    
+    match /accounting/{entryId} {
+      // Allow read for authenticated users (needed for report generation)
+      allow read: if isAuthenticated();
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'date' in request.resource.data
+        && 'description' in request.resource.data
+        && 'accounts' in request.resource.data
+        && 'reference' in request.resource.data
+        && 'type' in request.resource.data
+        && 'amount' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && isValidTimestamp(request.resource.data.date)
+        && isValidString(request.resource.data.description, 1)
+        && request.resource.data.accounts is list
+        && request.resource.data.accounts.size() >= 2
+        && isValidString(request.resource.data.reference, 1)
+        && request.resource.data.type in ['journal', 'purchase', 'sale', 'payment', 'receipt', 'expense', 'income']
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // Optional fields validation
+        && (!('accountType' in request.resource.data) || isValidAccountType(request.resource.data.accountType))
+        && (!('gstApplicable' in request.resource.data) || request.resource.data.gstApplicable is bool)
+        && (!('gstAmount' in request.resource.data) || (request.resource.data.gstAmount is number && request.resource.data.gstAmount >= 0))
+        && (!('paymentMethod' in request.resource.data) || isValidPaymentMethod(request.resource.data.paymentMethod));
+      
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.updatedAt > resource.data.updatedAt;
+      
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+    
+    // =============================================================================
+    // TOP-LEVEL INVENTORY COLLECTION (For Reports)
+    // =============================================================================
+    
+    match /inventory/{itemId} {
+      // Allow read for authenticated users (needed for report generation)
+      allow read: if isAuthenticated();
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'name' in request.resource.data
+        && 'sku' in request.resource.data
+        && 'quantity' in request.resource.data
+        && 'unitPrice' in request.resource.data
+        && 'totalValue' in request.resource.data
+        && 'category' in request.resource.data
+        && 'lastUpdated' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.name, 1)
+        && isValidString(request.resource.data.sku, 1)
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity >= 0
+        && request.resource.data.unitPrice is number
+        && request.resource.data.unitPrice >= 0
+        && request.resource.data.totalValue is number
+        && request.resource.data.totalValue >= 0
+        && isValidInventoryCategory(request.resource.data.category)
+        && isValidTimestamp(request.resource.data.lastUpdated)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        // Optional fields validation
+        && (!('unit' in request.resource.data) || isValidUnit(request.resource.data.unit))
+        && (!('supplier' in request.resource.data) || isValidString(request.resource.data.supplier, 1))
+        && (!('location' in request.resource.data) || isValidString(request.resource.data.location, 1))
+        && (!('minimumStock' in request.resource.data) || (request.resource.data.minimumStock is number && request.resource.data.minimumStock >= 0))
+        && (!('maximumStock' in request.resource.data) || (request.resource.data.maximumStock is number && request.resource.data.maximumStock >= 0));
+      
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.sku == resource.data.sku
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidTimestamp(request.resource.data.lastUpdated)
+        && request.resource.data.lastUpdated > resource.data.lastUpdated;
+      
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+    
+    // =============================================================================
+    // REPORT CACHE COLLECTION (For Performance Optimization)
+    // =============================================================================
+    
+    match /reportCache/{cacheId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated();
+      
+      // Allow create with validation
+      allow create: if isAuthenticated()
+        && 'reportType' in request.resource.data
+        && 'parameters' in request.resource.data
+        && 'data' in request.resource.data
+        && 'generatedAt' in request.resource.data
+        && 'expiresAt' in request.resource.data
+        && 'userId' in request.resource.data
+        && isValidReportType(request.resource.data.reportType)
+        && request.resource.data.parameters is map
+        && request.resource.data.data is map
+        && isValidTimestamp(request.resource.data.generatedAt)
+        && isValidTimestamp(request.resource.data.expiresAt)
+        && isOwner(request.resource.data.userId)
+        && request.resource.data.expiresAt > request.resource.data.generatedAt;
+      
+      // Allow update by owner
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      
+      // Allow delete by owner or if expired
+      allow delete: if isAuthenticated()
+        && (isOwner(resource.data.userId) || resource.data.expiresAt < request.time);
+    }
+    
+    // =============================================================================
+    // SYSTEM COLLECTIONS (Admin/System Access Only)
+    // =============================================================================
+    
+    match /systemConfig/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+        && 'key' in request.resource.data
+        && 'value' in request.resource.data
+        && 'updatedBy' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && isValidString(request.resource.data.key, 1)
+        && isOwner(request.resource.data.updatedBy)
+        && isValidTimestamp(request.resource.data.updatedAt);
+    }
+    
+    match /businessTypes/{typeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+        && 'name' in request.resource.data
+        && 'description' in request.resource.data
+        && 'createdBy' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.name, 1)
+        && isValidString(request.resource.data.description, 1)
+        && isOwner(request.resource.data.createdBy)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // =============================================================================
+    // TOP-LEVEL TRANSACTIONS COLLECTION (For Reports Access)
+    // =============================================================================
+    
+    match /transactions/{transactionId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && hasTransactionFields()
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.date)
+        && isValidTransactionType(request.resource.data.type)
+        && isPositiveNumber(request.resource.data.amount)
+        && isValidString(request.resource.data.description, 1)
+        && isValidPaymentMethod(request.resource.data.paymentMethod)
+        && request.resource.data.gstApplicable is bool
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // GST validation
+        && (request.resource.data.gstApplicable == false || 
+            (request.resource.data.gstApplicable == true && 
+             (!('gstType' in request.resource.data) || isValidGSTType(request.resource.data.gstType))))
+        // Interest rate validation for loans
+        && (request.resource.data.type != 'LOAN' || 
+            (!('interestRate' in request.resource.data) || 
+             (request.resource.data.interestRate is number && 
+              request.resource.data.interestRate >= 0 && 
+              request.resource.data.interestRate <= 100)));
+      
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.updatedAt > resource.data.updatedAt;
+      
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+    
+    // =============================================================================
+    // TOP-LEVEL INVENTORY COLLECTION (For Reports Access)
+    // =============================================================================
+    
+    match /inventory/{inventoryId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+      
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'name' in request.resource.data
+        && 'sku' in request.resource.data
+        && 'quantity' in request.resource.data
+        && 'unitPrice' in request.resource.data
+        && 'totalValue' in request.resource.data
+        && 'category' in request.resource.data
+        && 'lastUpdated' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.name, 1)
+        && isValidString(request.resource.data.sku, 1)
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity >= 0
+        && request.resource.data.unitPrice is number
+        && request.resource.data.unitPrice >= 0
+        && request.resource.data.totalValue is number
+        && request.resource.data.totalValue >= 0
+        && isValidInventoryCategory(request.resource.data.category)
+        && isValidTimestamp(request.resource.data.lastUpdated)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+      
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.sku == resource.data.sku
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidTimestamp(request.resource.data.lastUpdated)
+        && request.resource.data.lastUpdated > resource.data.lastUpdated;
+      
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+    
+    // =============================================================================
+    // DEFAULT DENY RULE
+    // =============================================================================
+    
+    // Deny all other requests
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

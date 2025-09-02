@@ -24,7 +24,7 @@ export interface TransactionFilters {
 }
 
 // Mock data storage (in a real app, this would be a database)
-let transactionsStore: Transaction[] = [
+const transactionsStore: Transaction[] = [
   {
     id: '1',
     date: '2024-01-15',

@@ -39,7 +39,7 @@ const expenseTypes = [
   }
 ];
 
-const paymentMethods = ['Cash', 'Bank A/C', 'Credit (to pay later)'];
+const paymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
 const gstTypes = ['Regular', 'Composite'];
 
 export default function ExpenditureTransactionForm({ onSubmit, onBack, editData }: ExpenditureTransactionFormProps) {

@@ -45,7 +45,7 @@ const loanTypes = [
   }
 ];
 
-const paymentMethods = ['Cash', 'Bank Transfer', 'Cheque', 'Online Transfer'];
+const paymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
 const gstTypes = ['Regular', 'Composite'];
 const interestTypes = ['Simple', 'Compound', 'Reducing Balance'];
 
@@ -55,7 +55,7 @@ export default function LoanTransactionForm({ onSubmit, onBack, editData }: Loan
     type: 'loan-taken',
     lenderName: '',
     borrowerName: '',
-    paymentMethod: 'Bank Transfer',
+    paymentMethod: 'Bank',
     amount: '',
     interestRate: '',
     interestType: 'Simple',

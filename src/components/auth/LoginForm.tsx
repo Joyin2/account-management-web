@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface FormData {
   email: string;
@@ -18,6 +20,8 @@ interface FormErrors {
 }
 
 export default function LoginForm() {
+  const { signIn } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -58,18 +62,30 @@ export default function LoginForm() {
     setErrors({});
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate success
+      await signIn(formData.email, formData.password);
       setIsSuccess(true);
       
-      // In a real app, you would redirect or update auth state here
+      // Redirect to dashboard after successful login
       setTimeout(() => {
-        console.log('Login successful:', formData);
+        router.push('/dashboard');
       }, 1000);
-    } catch (error) {
-      setErrors({ general: 'Login failed. Please check your credentials and try again.' });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+      
+      setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);
     }

@@ -9,25 +9,20 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
-interface BusinessType {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ComponentType<any>;
-  features: string[];
-}
+// Define the business type enum
+export type BusinessType = 'Sole Proprietorship' | 'Partnership' | 'Private Limited Company' | 'Public Limited Company' | 'LLP';
 
 interface UserProfile {
   uid: string;
   email: string;
   fullName: string;
   phone: string;
-  businessType: string; // Store only the business type ID
-  createdAt: Date;
-  updatedAt: Date;
+  businessType: BusinessType;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 interface AuthContextType {
@@ -35,8 +30,8 @@ interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, phone: string, businessType: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (email: string, password: string, fullName: string, phone: string, businessType: BusinessType) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -81,7 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result.user;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -93,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string,
     fullName: string,
     phone: string,
-    businessType: string
+    businessType: BusinessType
   ) => {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
@@ -104,18 +100,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Create user document in Firestore
+      const now = Timestamp.now();
       const userProfile: UserProfile = {
         uid: user.uid,
         email: user.email!,
         fullName,
         phone,
         businessType: businessType, // Store the business type ID
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: now,
+        updatedAt: now
       };
 
       await setDoc(doc(db, 'users', user.uid), userProfile);
       setUserProfile(userProfile);
+      return user;
     } catch (error) {
       console.error('Sign up error:', error);
       throw error;

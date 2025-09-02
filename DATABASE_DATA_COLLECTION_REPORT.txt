@@ -1,0 +1,445 @@
+=============================================================================
+                    DATABASE DATA COLLECTION & UPLOAD REPORT
+                         Account Management System
+=============================================================================
+
+This document provides a comprehensive overview of all data being collected
+and uploaded to the Firestore database in the Account Management System.
+
+=============================================================================
+1. FIREBASE PROJECT CONFIGURATION
+=============================================================================
+
+Project ID: accountmanagement-42375
+Database: Firestore (default)
+Location: nam5 (North America)
+Rules File: firestore.rules
+Indexes File: firestore.indexes.json
+
+=============================================================================
+2. USER AUTHENTICATION & PROFILE DATA
+=============================================================================
+
+2.1 FIREBASE AUTH DATA
+- User UID (auto-generated)
+- Email address
+- Password (hashed by Firebase)
+- Display Name
+- Email verification status
+- Creation timestamp
+- Last sign-in timestamp
+
+2.2 USER PROFILE COLLECTION (/users/{userId})
+Required Fields:
+- uid: string (Firebase user ID)
+- email: string (validated email format)
+- fullName: string (min 2 chars)
+- phone: string (min 10 chars, international format)
+- businessType: enum ('Sole Proprietorship', 'Partnership', 'Private Limited Company', 'Public Limited Company', 'LLP')
+- createdAt: Timestamp
+- updatedAt: Timestamp
+
+2.3 EXTENDED SIGNUP DATA (SignupForm.tsx)
+Personal Information:
+- firstName: string
+- lastName: string
+- email: string (validated)
+- phone: string (international format)
+- password: string (min 8 chars, complexity rules)
+- confirmPassword: string (must match)
+
+Account Type:
+- accountType: enum ('personal', 'business', 'enterprise')
+
+Business Information (if applicable):
+- companyName: string
+- industry: string
+- companySize: string
+- website: string
+
+Address Information:
+- address: string (street)
+- city: string
+- state: string
+- zipCode: string
+- country: string
+
+User Preferences:
+- newsletter: boolean
+- terms: boolean (acceptance)
+- privacy: boolean (acceptance)
+
+=============================================================================
+3. TRANSACTION DATA COLLECTION
+=============================================================================
+
+3.1 MAIN TRANSACTIONS COLLECTION (/transactions/{transactionId})
+Core Fields:
+- date: Timestamp
+- type: enum ('BUY', 'SELL', 'EXPENDITURE', 'CAPITAL_DRAWINGS', 'BANK', 'LOAN')
+- subType: string (optional)
+- amount: number (positive, validated)
+- description: string (min 1 char)
+- paymentMethod: enum ('Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS')
+- gstApplicable: boolean
+- gstn: string (optional)
+- gstType: enum ('Regular', 'Composite') (optional)
+- remarks: string (optional)
+- importExportTax: number (optional)
+- userId: string (owner)
+- organizationId: string
+- createdAt: Timestamp
+- updatedAt: Timestamp
+
+Type-Specific Fields:
+- productName: string (for BUY/SELL)
+- quantity: number (for BUY/SELL)
+- price: number (for BUY/SELL)
+- vendorName: string (for BUY)
+- buyerName: string (for SELL)
+- assetName: string (for CAPITAL)
+- expenseType: string (for EXPENDITURE)
+- paidTo: string (for EXPENDITURE)
+- billUrl: string (for EXPENDITURE)
+- partnerOwner: string (for CAPITAL)
+- bankAccount: string (for BANK)
+- transactionType: string (for BANK)
+- loanProvider: string (for LOAN)
+- interestRate: number (for LOAN)
+- emiAmount: number (for LOAN)
+
+3.2 ORGANIZATION-SPECIFIC ACCOUNTING COLLECTIONS
+
+3.2.1 BUY Transactions (/organizations/{orgId}/accounting/buy/{buyId})
+- date: Timestamp
+- type: string
+- amount: number (positive)
+- vendorName: string
+- paymentMethod: string
+- userId: string
+- createdAt: Timestamp
+- Additional buy-specific fields
+
+3.2.2 SELL Transactions (/organizations/{orgId}/accounting/sell/{sellId})
+- date: Timestamp
+- type: string
+- amount: number (positive)
+- buyerName: string
+- paymentMethod: string
+- userId: string
+- createdAt: Timestamp
+- Additional sell-specific fields
+
+3.2.3 EXPENDITURE Transactions (/organizations/{orgId}/accounting/expenditure/{expId})
+- date: Timestamp
+- expenseType: string
+- amount: number (positive)
+- paidTo: string
+- paymentMethod: string
+- billUrl: string (optional)
+- userId: string
+- createdAt: Timestamp
+
+3.2.4 CAPITAL/DRAWINGS (/organizations/{orgId}/accounting/capital/{capitalId})
+- date: Timestamp
+- type: string
+- amount: number (positive)
+- partnerOwner: string
+- paymentMethod: string
+- userId: string
+- createdAt: Timestamp
+
+3.2.5 BANK Transactions (/organizations/{orgId}/accounting/bank/{bankId})
+- date: Timestamp
+- bankAccount: string
+- transactionType: string
+- amount: number (positive)
+- userId: string
+- createdAt: Timestamp
+
+3.2.6 LOAN Transactions (/organizations/{orgId}/accounting/loan/{loanId})
+- date: Timestamp
+- loanProvider: string
+- amount: number (positive)
+- interestRate: number (>= 0)
+- userId: string
+- createdAt: Timestamp
+
+=============================================================================
+4. INVENTORY MANAGEMENT DATA
+=============================================================================
+
+4.1 INVENTORY ITEMS (/organizations/{orgId}/inventory/{itemId})
+Core Item Data:
+- name: string (required)
+- sku: string (required, unique identifier)
+- category: enum ('raw-materials', 'components', 'finished-goods', 'packaging', 'tools', 'office-supplies', 'other')
+- description: string (optional)
+- currentStock: number
+- minimumStock: number (>= 0)
+- maximumStock: number (> minimumStock)
+- unitPrice: number (>= 0)
+- costPrice: number (>= 0)
+- supplier: string (required)
+- location: string (required)
+- unit: enum ('pcs', 'kg', 'gm', 'ltr', 'ml', 'mtr', 'cm', 'sqft', 'box', 'pack')
+- barcode: string (optional)
+- notes: string (optional)
+- imageUrls: array of strings (optional)
+- userId: string
+- createdAt: Timestamp
+- updatedAt: Timestamp
+
+4.2 STOCK MOVEMENTS (/organizations/{orgId}/inventory/{itemId}/stockMovements/{movementId})
+Movement Tracking:
+- type: enum ('in', 'out', 'adjustment')
+- quantity: number (non-zero)
+- reason: string (required)
+- userId: string
+- createdAt: Timestamp
+- itemId: string
+- itemName: string
+- itemSku: string
+- previousStock: number
+- newStock: number
+- reference: string (optional - links to transactions/orders)
+- notes: string (optional)
+
+Note: Stock movements are immutable (no updates/deletes allowed for audit trail)
+
+=============================================================================
+5. INVOICING DATA
+=============================================================================
+
+5.1 INVOICES COLLECTION (/organizations/{orgId}/invoices/{invoiceId})
+Invoice Header:
+- invoiceNumber: string (required, unique)
+- date: Timestamp
+- customerName: string (required)
+- customerEmail: string (required)
+- customerAddress: string (required)
+- lineItems: array (required, min 1 item)
+- totalAmount: number (positive)
+- userId: string
+- createdAt: Timestamp
+- issueDate: Timestamp
+- dueDate: Timestamp
+- status: string (optional)
+- notes: string (optional)
+
+Line Items Structure (within lineItems array):
+- description: string (required)
+- quantity: number (> 0)
+- rate: number (> 0)
+- amount: number (calculated: quantity * rate)
+- taxRate: number (optional)
+- taxAmount: number (optional)
+
+=============================================================================
+6. BANKING & FINANCIAL DATA
+=============================================================================
+
+6.1 BANKING TRANSACTIONS (/organizations/{orgId}/banking/{transactionId})
+- date: Timestamp
+- accountNumber: string
+- accountName: string
+- transactionType: string
+- amount: number
+- balance: number
+- description: string
+- reference: string (optional)
+- userId: string
+- createdAt: Timestamp
+
+=============================================================================
+7. BUSINESS-SPECIFIC DATA COLLECTIONS
+=============================================================================
+
+7.1 JOB CARDS (Service Providers) (/organizations/{orgId}/jobCards/{jobId})
+- jobNumber: string (required)
+- customerName: string (required)
+- serviceType: string (required)
+- status: enum ('pending', 'in_progress', 'completed', 'cancelled')
+- userId: string
+- createdAt: Timestamp
+- description: string (optional)
+- startDate: Timestamp (optional)
+- endDate: Timestamp (optional)
+- laborCost: number (optional)
+- materialCost: number (optional)
+- totalCost: number (optional)
+
+7.2 CROP TRACKING (Farmers) (/organizations/{orgId}/crops/{cropId})
+- cropName: string (required)
+- plantingDate: Timestamp (required)
+- expectedHarvest: Timestamp (required)
+- area: number (required)
+- userId: string (required)
+- createdAt: Timestamp
+- variety: string (optional)
+- season: string (optional)
+- irrigationType: string (optional)
+- fertilizers: array (optional)
+- pesticides: array (optional)
+- actualHarvest: Timestamp (optional)
+- yield: number (optional)
+- quality: string (optional)
+
+=============================================================================
+8. REPORTS & ANALYTICS DATA
+=============================================================================
+
+8.1 GENERATED REPORTS (/organizations/{orgId}/reports/{reportId})
+- reportType: string
+- generatedAt: Timestamp
+- parameters: object (report filters/settings)
+- userId: string
+- fileUrl: string (optional - for exported reports)
+- format: string (PDF, Excel, CSV)
+- status: enum ('generating', 'completed', 'failed')
+
+=============================================================================
+9. CONTACT & COMMUNICATION DATA
+=============================================================================
+
+9.1 CONTACT FORM SUBMISSIONS (ContactForm.tsx)
+- name: string (required)
+- email: string (required, validated)
+- businessType: string (dropdown selection)
+- message: string (textarea, required)
+- submittedAt: Timestamp
+- ipAddress: string (optional, for security)
+- userAgent: string (optional)
+
+9.2 PARTNER INQUIRIES (PartnerForm.tsx)
+- contactName: string
+- email: string
+- company: string
+- phone: string
+- country: string (from predefined list)
+- partnershipType: string
+- hearAbout: string (from predefined options)
+- message: string
+- submittedAt: Timestamp
+
+=============================================================================
+10. FILE UPLOADS & MEDIA DATA
+=============================================================================
+
+10.1 DOCUMENT UPLOADS
+- Bill/Receipt uploads (for expenditure transactions)
+- Invoice attachments
+- Inventory item images
+- User profile pictures
+- Company logos
+- Document scans
+
+10.2 STORAGE STRUCTURE
+- Files stored in Firebase Storage
+- URLs stored in Firestore documents
+- Organized by user/organization folders
+- Automatic file type validation
+- Size limits enforced
+
+=============================================================================
+11. AUDIT & SECURITY DATA
+=============================================================================
+
+11.1 AUDIT TRAIL FIELDS (Present in all collections)
+- userId: string (who performed the action)
+- createdAt: Timestamp (when created)
+- updatedAt: Timestamp (when last modified)
+- ipAddress: string (optional)
+- userAgent: string (optional)
+
+11.2 SECURITY VALIDATIONS
+- All timestamps validated
+- Positive number validations for amounts
+- String length validations
+- Email format validations
+- Phone number format validations
+- Enum value validations
+- User ownership validations
+- Organization membership validations
+
+=============================================================================
+12. DATA INDEXES & PERFORMANCE
+=============================================================================
+
+12.1 FIRESTORE INDEXES (firestore.indexes.json)
+- Composite index on transactions:
+  - organizationId (ASCENDING)
+  - date (DESCENDING)
+  - __name__ (DESCENDING)
+
+12.2 QUERY PATTERNS
+- Transactions by organization and date range
+- Inventory items by category and stock levels
+- Invoices by customer and date
+- Reports by type and generation date
+
+=============================================================================
+13. DATA VALIDATION & CONSTRAINTS
+=============================================================================
+
+13.1 FIRESTORE SECURITY RULES
+- User authentication required for all operations
+- Users can only access their own data
+- Organization membership validation
+- Field-level validation for all data types
+- Immutable fields protection (createdAt, uid)
+- Stock movement audit trail protection
+
+13.2 CLIENT-SIDE VALIDATIONS
+- Form field validations (required, format, length)
+- Real-time validation feedback
+- Password strength requirements
+- File type and size validations
+- Business logic validations (stock levels, amounts)
+
+=============================================================================
+14. DATA PRIVACY & COMPLIANCE
+=============================================================================
+
+14.1 PERSONAL DATA COLLECTED
+- Names, email addresses, phone numbers
+- Business information and addresses
+- Financial transaction data
+- Usage analytics and preferences
+
+14.2 DATA PROTECTION MEASURES
+- Firebase Auth encryption
+- Firestore security rules
+- HTTPS encryption in transit
+- Regular security audits
+- User consent tracking (terms, privacy, newsletter)
+
+=============================================================================
+15. INTEGRATION DATA FLOWS
+=============================================================================
+
+15.1 EXTERNAL INTEGRATIONS
+- Bank account connections (transaction import)
+- Payment gateway integrations
+- E-commerce platform syncing
+- Accounting software exports
+- Tax filing system integrations
+
+15.2 API DATA EXCHANGE
+- RESTful API endpoints for data access
+- Webhook notifications for real-time updates
+- Bulk data import/export capabilities
+- Third-party service integrations
+
+=============================================================================
+END OF REPORT
+=============================================================================
+
+Generated on: $(date)
+System: Account Management Platform
+Database: Firebase Firestore
+Project: accountmanagement-42375
+
+This report covers all identified data collection and upload operations
+in the current codebase. Regular updates recommended as new features
+are added to the system.

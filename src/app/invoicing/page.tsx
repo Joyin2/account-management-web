@@ -348,8 +348,18 @@ export default function InvoicingPage() {
       // Create new invoice
       const newInvoice: Invoice = {
         id: Date.now().toString(),
-        ...formData,
-        status: formData.action === 'send' ? 'sent' : 'draft'
+        invoiceNumber: formData.invoiceNumber || `INV-${Date.now()}`,
+        customerName: formData.customerName || '',
+        customerEmail: formData.customerEmail || '',
+        customerAddress: formData.customerAddress || '',
+        issueDate: formData.issueDate || new Date().toISOString().split('T')[0],
+        dueDate: formData.dueDate || new Date().toISOString().split('T')[0],
+        items: formData.items || [],
+        subtotal: formData.subtotal || 0,
+        gstAmount: formData.gstAmount || 0,
+        total: formData.total || 0,
+        status: 'draft',
+        notes: formData.notes
       };
       setInvoices([newInvoice, ...invoices]);
     }

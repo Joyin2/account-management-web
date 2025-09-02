@@ -20,7 +20,7 @@ interface SellTransactionFormProps {
 }
 
 const sellTypes = ['Product', 'Other'];
-const paymentMethods = ['Cash', 'Bank', 'Credit (Receive Later)'];
+const paymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
 const gstTypes = ['Regular', 'Composite'];
 
 export default function SellTransactionForm({ onSubmit, onBack, editData }: SellTransactionFormProps) {

@@ -21,7 +21,7 @@ export default function CapitalAssetForm({ onBack, onSave }: CapitalAssetFormPro
     assetName: '',
     quantity: '',
     vendorName: '',
-    paymentMethod: '',
+    paymentMethod: 'Cash',
     amount: '',
     gstApplicable: false,
     gstPercentage: '',
@@ -110,9 +110,14 @@ export default function CapitalAssetForm({ onBack, onSave }: CapitalAssetFormPro
                     <SelectValue placeholder="Select payment method" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank">Bank</SelectItem>
-                    <SelectItem value="credit">Credit (Pay Later)</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Bank">Bank</SelectItem>
+                    <SelectItem value="Credit">Credit</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="Card">Card</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    <SelectItem value="NEFT">NEFT</SelectItem>
+                    <SelectItem value="RTGS">RTGS</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import AuthGuard from '@/components/auth/AuthGuard';
 import { businessTypes } from '@/components/auth/BusinessTypeSelector';
 import { 
   AccountingSummaryWidget,
@@ -99,8 +100,8 @@ function QuickAction({ title, description, icon: Icon, color, onClick }: QuickAc
   );
 }
 
-export default function DashboardPage() {
-  const { userProfile } = useAuth();
+function DashboardPageContent() {
+  const { user, userProfile } = useAuth();
 
   const stats = [
     {
@@ -331,5 +332,13 @@ export default function DashboardPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardPageContent />
+    </AuthGuard>
   );
 }

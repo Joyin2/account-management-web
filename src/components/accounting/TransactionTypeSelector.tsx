@@ -22,6 +22,7 @@ const transactionTypes = [
   {
     id: 'buy',
     name: 'BUY',
+    type: 'BUY',
     description: 'Purchase transactions',
     icon: ShoppingCart,
     color: 'bg-blue-500',
@@ -30,6 +31,7 @@ const transactionTypes = [
   {
     id: 'sell',
     name: 'SELL',
+    type: 'SELL',
     description: 'Sales transactions',
     icon: TrendingUp,
     color: 'bg-green-500',
@@ -38,6 +40,7 @@ const transactionTypes = [
   {
     id: 'expenditure',
     name: 'EXPENDITURE',
+    type: 'EXPENDITURE',
     description: 'Expense transactions',
     icon: CreditCard,
     color: 'bg-red-500',
@@ -46,6 +49,7 @@ const transactionTypes = [
   {
     id: 'capital-drawings',
     name: 'CAPITAL & DRAWINGS',
+    type: 'CAPITAL_DRAWINGS',
     description: 'Capital and drawings',
     icon: Building2,
     color: 'bg-purple-500',
@@ -54,6 +58,7 @@ const transactionTypes = [
   {
     id: 'bank',
     name: 'BANK',
+    type: 'BANK',
     description: 'Banking transactions',
     icon: Banknote,
     color: 'bg-indigo-500',
@@ -62,6 +67,7 @@ const transactionTypes = [
   {
     id: 'loan',
     name: 'LOAN',
+    type: 'LOAN',
     description: 'Loan transactions',
     icon: HandCoins,
     color: 'bg-orange-500',
@@ -94,7 +100,7 @@ export default function TransactionTypeSelector({ onSelectType, onClose }: Trans
             return (
               <motion.button
                 key={type.id}
-                onClick={() => onSelectType(type.name as TransactionType)}
+                onClick={() => onSelectType(type.type as TransactionType)}
                 className={`p-6 rounded-lg text-white ${type.color} ${type.hoverColor} transition-all duration-200 text-left`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

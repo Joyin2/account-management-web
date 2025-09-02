@@ -27,9 +27,6 @@ import {
   Receipt,
   Wallet,
   TrendingUp,
-  PieChart,
-  FileBarChart,
-  Banknote,
   ShoppingBag,
   ClipboardList,
   Target,
@@ -81,45 +78,16 @@ const getMenuItems = (businessType: string): MenuItem[] => {
       href: '/accounting'
     },
     {
-      id: 'sales',
-      label: 'Sales',
-      icon: TrendingUp,
-      children: [
-        { id: 'invoices', label: 'Invoices', icon: FileText, href: '/dashboard/sales/invoices' },
-        { id: 'customers', label: 'Customers', icon: Users, href: '/dashboard/sales/customers' },
-        { id: 'quotes', label: 'Quotes', icon: FileBarChart, href: '/dashboard/sales/quotes' }
-      ]
-    },
-    {
-      id: 'purchases',
-      label: 'Purchases',
-      icon: ShoppingBag,
-      children: [
-        { id: 'bills', label: 'Bills', icon: Receipt, href: '/dashboard/purchases/bills' },
-        { id: 'suppliers', label: 'Suppliers', icon: Truck, href: '/dashboard/purchases/suppliers' },
-        { id: 'purchase-orders', label: 'Purchase Orders', icon: ClipboardList, href: '/dashboard/purchases/orders' }
-      ]
-    },
-    {
       id: 'inventory',
       label: 'Inventory',
       icon: Package,
-      children: [
-        { id: 'items', label: 'Items', icon: Package, href: '/dashboard/inventory/items' },
-        { id: 'stock-movements', label: 'Stock Movements', icon: TrendingUp, href: '/dashboard/inventory/movements' },
-        { id: 'stock-alerts', label: 'Stock Alerts', icon: Target, href: '/dashboard/inventory/alerts' }
-      ]
+      href: '/inventory'
     },
     {
       id: 'reports',
       label: 'Reports',
       icon: BarChart3,
-      children: [
-        { id: 'profit-loss', label: 'Profit & Loss', icon: PieChart, href: '/dashboard/reports/profit-loss' },
-        { id: 'balance-sheet', label: 'Balance Sheet', icon: FileBarChart, href: '/dashboard/reports/balance-sheet' },
-        { id: 'cash-flow', label: 'Cash Flow', icon: Banknote, href: '/dashboard/reports/cash-flow' },
-        { id: 'gst-returns', label: 'GST Returns', icon: Receipt, href: '/dashboard/reports/gst-returns' }
-      ]
+      href: '/reports'
     }
   ];
 

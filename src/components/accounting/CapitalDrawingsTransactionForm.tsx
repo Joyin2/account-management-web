@@ -36,7 +36,7 @@ const transactionTypes = [
   }
 ];
 
-const paymentMethods = ['Cash', 'Bank', 'Credit'];
+const paymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
 const gstTypes = ['Regular', 'Composite'];
 
 export default function CapitalDrawingsTransactionForm({ onSubmit, onBack, editData }: CapitalDrawingsTransactionFormProps) {
