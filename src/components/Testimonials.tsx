@@ -109,7 +109,7 @@ const Testimonials = () => {
             What Our Customers Say
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Don't just take our word for it. Here's what business owners across different industries 
+            Don&apos;t just take our word for it. Here&apos;s what business owners across different industries 
             have to say about their experience with our platform.
           </p>
         </motion.div>
@@ -146,7 +146,7 @@ const Testimonials = () => {
 
                 {/* Content */}
                 <blockquote className="text-lg md:text-xl text-gray-700 text-center leading-relaxed mb-8 italic">
-                  "{testimonials[currentIndex].content}"
+                  &ldquo;{testimonials[currentIndex].content}&rdquo;
                 </blockquote>
 
                 {/* Author Info */}

@@ -2,6 +2,20 @@ import { inventoryService, InventoryItem, InventoryFormData } from './inventoryS
 import { Transaction } from '@/lib/api/transactions';
 import { FirestoreTransaction } from '@/lib/firestore/transactions';
 
+// Enhanced transaction interface with optional inventory data
+interface EnhancedTransaction extends FirestoreTransaction {
+  inventoryData?: {
+    sku?: string;
+    category?: string;
+    minimumStock?: number;
+    maximumStock?: number;
+    unitPrice?: number;
+    location?: string;
+    unit?: string;
+    barcode?: string;
+  };
+}
+
 /**
  * Service to integrate accounting transactions with inventory management
  * This handles automatic inventory updates when transactions are processed
@@ -56,7 +70,8 @@ class AccountingInventoryIntegration {
       }
 
       // Use enhanced inventory data if available, otherwise generate defaults
-      const enhancedData = (transaction as any).inventoryData;
+      const enhancedTransaction = transaction as EnhancedTransaction;
+      const enhancedData = enhancedTransaction.inventoryData;
       const sku = enhancedData?.sku || this.generateSkuFromProductName(transaction.productName);
       
       // Check if item with this SKU already exists

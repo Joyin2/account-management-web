@@ -12,8 +12,8 @@ import {
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
-// Define the business type enum
-export type BusinessType = 'Sole Proprietorship' | 'Partnership' | 'Private Limited Company' | 'Public Limited Company' | 'LLP';
+// Define the business type enum to match BusinessTypeSelector IDs
+export type BusinessType = 'manufacturer' | 'retailer' | 'restaurant' | 'service' | 'wholesale' | 'construction' | 'ecommerce' | 'general' | 'distributor';
 
 interface UserProfile {
   uid: string;

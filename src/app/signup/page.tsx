@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import BusinessTypeSelector, { BusinessType } from '@/components/auth/BusinessTypeSelector';
+import { useAuth, BusinessType } from '@/contexts/AuthContext';
+import BusinessTypeSelector, { BusinessType as BusinessTypeSelectorType } from '@/components/auth/BusinessTypeSelector';
 
 type SignupStep = 'account' | 'business-type';
 
@@ -23,7 +23,7 @@ export default function SignupPage() {
     password: '',
     confirmPassword: ''
   });
-  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null);
+  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeSelectorType | null>(null);
   
   const { signUp } = useAuth();
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function SignupPage() {
     
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      await signUp(formData.email, formData.password, fullName, '', selectedBusinessType!.id);
+      await signUp(formData.email, formData.password, fullName, '', selectedBusinessType!.id as BusinessType);
       router.push('/dashboard');
     } catch (error: any) {
       setError(error.message || 'Failed to create account');
