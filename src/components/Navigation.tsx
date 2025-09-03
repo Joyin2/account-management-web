@@ -23,15 +23,6 @@ const Navigation = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showUserMenu) {
-        const target = event.target as Element
-        const userMenuElement = document.querySelector('[data-user-menu]')
-        const userMenuButton = document.querySelector('[data-user-menu-button]')
-        
-        // Don't close if clicking on the menu itself or the menu button
-        if (userMenuElement && (userMenuElement.contains(target) || userMenuButton?.contains(target))) {
-          return
-        }
-        
         setShowUserMenu(false)
       }
     }
@@ -99,7 +90,6 @@ const Navigation = () => {
                 </Link>
                 <div className="relative">
                   <button
-                    data-user-menu-button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                       isScrolled 
@@ -111,16 +101,11 @@ const Navigation = () => {
                     <span>{userProfile?.firstName || user.email?.split('@')[0] || 'User'}</span>
                   </button>
                   {showUserMenu && (
-                    <div data-user-menu className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                       <button
-                        onClick={async () => {
-                          try {
-                            await logout()
-                            setShowUserMenu(false)
-                          } catch (error) {
-                            console.error('Logout failed:', error)
-                            // Keep menu open if logout fails
-                          }
+                        onClick={() => {
+                          logout()
+                          setShowUserMenu(false)
                         }}
                         className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
