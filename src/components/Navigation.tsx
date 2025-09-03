@@ -36,7 +36,9 @@ const Navigation = () => {
             <div className="w-8 h-8 bg-primary-gradient rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">N</span>
             </div>
-            <span className="font-poppins font-bold text-xl text-gray-900">
+            <span className={`font-poppins font-bold text-xl transition-colors duration-300 ${
+              isScrolled ? 'text-gray-900' : 'text-white'
+            }`}>
               Next-Gen Accounts
             </span>
           </Link>
@@ -47,7 +49,11 @@ const Navigation = () => {
               <Link
                 key={item.name}
                 href={item.href}
-                className="nav-link font-medium"
+                className={`nav-link font-medium transition-colors duration-300 ${
+                  isScrolled 
+                    ? 'text-gray-700 hover:text-blue-600 light-theme' 
+                    : 'text-white/90 hover:text-white dark-theme'
+                }`}
               >
                 {item.name}
               </Link>
@@ -58,7 +64,11 @@ const Navigation = () => {
           <div className="hidden lg:flex items-center space-x-4">
             <Link
               href="/login"
-              className="btn-secondary px-4 py-2 text-sm"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                isScrolled 
+                  ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
+                  : 'border border-white/30 text-white hover:bg-white/10'
+              }`}
             >
               Login
             </Link>
@@ -73,7 +83,11 @@ const Navigation = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 focus-ring"
+            className={`lg:hidden p-2 rounded-md transition-colors duration-300 focus-ring ${
+              isScrolled 
+                ? 'text-gray-700 hover:text-blue-600' 
+                : 'text-white/90 hover:text-white'
+            }`}
             aria-label="Toggle menu"
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -89,7 +103,11 @@ const Navigation = () => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="lg:hidden bg-white border-t border-gray-200"
+            className={`lg:hidden border-t transition-colors duration-300 ${
+              isScrolled 
+                ? 'bg-white border-gray-200' 
+                : 'bg-gray-900/95 backdrop-blur-md border-white/20'
+            }`}
           >
             <div className="container-custom py-4">
               <div className="flex flex-col space-y-4">
@@ -97,16 +115,26 @@ const Navigation = () => {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className="text-gray-700 hover:text-blue-600 font-medium py-2 transition-colors"
+                    className={`font-medium py-2 transition-colors ${
+                      isScrolled 
+                        ? 'text-gray-700 hover:text-blue-600' 
+                        : 'text-white/90 hover:text-white'
+                    }`}
                     onClick={() => setIsOpen(false)}
                   >
                     {item.name}
                   </Link>
                 ))}
-                <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
+                <div className={`flex flex-col space-y-3 pt-4 border-t ${
+                  isScrolled ? 'border-gray-200' : 'border-white/20'
+                }`}>
                   <Link
                     href="/login"
-                    className="btn-secondary text-center"
+                    className={`text-center px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                      isScrolled 
+                        ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
+                        : 'border border-white/30 text-white hover:bg-white/10'
+                    }`}
                     onClick={() => setIsOpen(false)}
                   >
                     Login

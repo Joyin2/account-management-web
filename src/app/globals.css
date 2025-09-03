@@ -163,16 +163,25 @@ body {
 
 /* Navigation Styles */
 .nav-link {
-  @apply text-gray-700 hover:text-blue-600 transition-colors duration-200 relative;
+  @apply relative;
 }
 
 .nav-link::after {
   content: '';
-  @apply absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300;
+  @apply absolute bottom-0 left-0 w-0 h-0.5 transition-all duration-300;
 }
 
 .nav-link:hover::after {
   @apply w-full;
+}
+
+/* Dynamic underline colors based on theme */
+.nav-link.light-theme::after {
+  @apply bg-blue-600;
+}
+
+.nav-link.dark-theme::after {
+  @apply bg-white;
 }
 
 /* Mobile Menu */
