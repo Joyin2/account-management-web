@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, LayoutDashboard, LogOut, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '@/contexts/AuthContext'
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { user, userProfile, logout } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,6 +19,25 @@ const Navigation = () => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showUserMenu) {
+        const target = event.target as Element
+        const userMenuElement = document.querySelector('[data-user-menu]')
+        const userMenuButton = document.querySelector('[data-user-menu-button]')
+        
+        // Don't close if clicking on the menu itself or the menu button
+        if (userMenuElement && (userMenuElement.contains(target) || userMenuButton?.contains(target))) {
+          return
+        }
+        
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showUserMenu])
 
   const navItems = [
     { name: 'Home', href: '/' },
@@ -60,24 +82,75 @@ const Navigation = () => {
             ))}
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Section */}
           <div className="hidden lg:flex items-center space-x-4">
-            <Link
-              href="/login"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                isScrolled 
-                  ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
-                  : 'border border-white/30 text-white hover:bg-white/10'
-              }`}
-            >
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="btn-primary px-4 py-2 text-sm"
-            >
-              Sign Up
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                    isScrolled 
+                      ? 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' 
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <LayoutDashboard size={16} />
+                  <span>Dashboard</span>
+                </Link>
+                <div className="relative">
+                  <button
+                    data-user-menu-button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                      isScrolled 
+                        ? 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' 
+                        : 'text-white/90 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <User size={16} />
+                    <span>{userProfile?.firstName || user.email?.split('@')[0] || 'User'}</span>
+                  </button>
+                  {showUserMenu && (
+                    <div data-user-menu className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await logout()
+                            setShowUserMenu(false)
+                          } catch (error) {
+                            console.error('Logout failed:', error)
+                            // Keep menu open if logout fails
+                          }
+                        }}
+                        className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <LogOut size={16} />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                    isScrolled 
+                      ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
+                      : 'border border-white/30 text-white hover:bg-white/10'
+                  }`}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="btn-primary px-4 py-2 text-sm"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -128,24 +201,57 @@ const Navigation = () => {
                 <div className={`flex flex-col space-y-3 pt-4 border-t ${
                   isScrolled ? 'border-gray-200' : 'border-white/20'
                 }`}>
-                  <Link
-                    href="/login"
-                    className={`text-center px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                      isScrolled 
-                        ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
-                        : 'border border-white/30 text-white hover:bg-white/10'
-                    }`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="btn-primary text-center"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Sign Up
-                  </Link>
+                  {user ? (
+                    <>
+                      <Link
+                        href="/dashboard"
+                        className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                          isScrolled 
+                            ? 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' 
+                            : 'text-white/90 hover:text-white hover:bg-white/10'
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <LayoutDashboard size={16} />
+                        <span>Dashboard</span>
+                      </Link>
+                      <button
+                        onClick={() => {
+                          logout()
+                          setIsOpen(false)
+                        }}
+                        className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                          isScrolled 
+                            ? 'border border-red-500 text-red-500 hover:bg-red-50' 
+                            : 'border border-white/30 text-white hover:bg-white/10'
+                        }`}
+                      >
+                        <LogOut size={16} />
+                        <span>Logout</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        className={`text-center px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                          isScrolled 
+                            ? 'border border-blue-500 text-blue-500 hover:bg-blue-50' 
+                            : 'border border-white/30 text-white hover:bg-white/10'
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        href="/signup"
+                        className="btn-primary text-center"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Sign Up
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

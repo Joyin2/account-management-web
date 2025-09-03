@@ -10,6 +10,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 
 // Define the business type enum to match BusinessTypeSelector IDs
@@ -70,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -158,6 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       setUserProfile(null);
+      // Redirect to home page after successful logout
+      router.push('/');
     } catch (error) {
       console.error('Logout error:', error);
       throw error;

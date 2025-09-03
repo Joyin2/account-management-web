@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Logout Test</title>
+</head>
+<body>
+    <h1>Logout Functionality Test</h1>
+    <p>To test the logout button:</p>
+    <ol>
+        <li>Go to <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+        <li>Click "Login" and sign in with valid credentials</li>
+        <li>After successful login, you should see:
+            <ul>
+                <li>"Dashboard" tab in the navigation</li>
+                <li>User menu with your name/email</li>
+                <li>"Logout" option in the dropdown menu</li>
+            </ul>
+        </li>
+        <li>Click on the user menu and then "Logout"</li>
+        <li>Verify that:
+            <ul>
+                <li>You are redirected to the home page</li>
+                <li>Navigation shows "Login" and "Sign Up" buttons again</li>
+                <li>No user-specific content is visible</li>
+            </ul>
+        </li>
+    </ol>
+    
+    <h2>Expected Behavior:</h2>
+    <ul>
+        <li>✅ Logout button should be visible in user menu when logged in</li>
+        <li>✅ Clicking logout should sign out the user</li>
+        <li>✅ User should be redirected to home page</li>
+        <li>✅ Navigation should revert to showing Login/Signup buttons</li>
+        <li>✅ User menu should disappear</li>
+    </ul>
+</body>
+</html>
