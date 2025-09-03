@@ -9,12 +9,14 @@ interface AuthGuardProps {
   children: React.ReactNode;
   redirectTo?: string;
   requireProfile?: boolean;
+  requireCompleteProfile?: boolean;
 }
 
 export default function AuthGuard({ 
   children, 
   redirectTo = '/login',
-  requireProfile = true 
+  requireProfile = false,
+  requireCompleteProfile = false 
 }: AuthGuardProps) {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
@@ -32,8 +34,19 @@ export default function AuthGuard({
         router.push('/signup');
         return;
       }
+      
+      if (requireCompleteProfile && userProfile) {
+        // Check if profile is complete (has required fields)
+        const hasBasicInfo = userProfile.firstName || userProfile.fullName;
+        const hasAccountType = userProfile.accountType || userProfile.businessType;
+        
+        if (!hasBasicInfo || !hasAccountType) {
+          router.push('/signup');
+          return;
+        }
+      }
     }
-  }, [user, userProfile, loading, router, redirectTo, requireProfile]);
+  }, [user, userProfile, loading, router, redirectTo, requireProfile, requireCompleteProfile]);
   
   // Show loading spinner while checking authentication
   if (loading) {
@@ -47,8 +60,28 @@ export default function AuthGuard({
     );
   }
 
-  // Don't render children if user is not authenticated or profile is missing
-  if (!user || (requireProfile && !userProfile)) {
+  // Don't render children if user is not authenticated
+  if (!user) {
+    return null;
+  }
+  
+  // Don't render if profile is required but missing
+  if (requireProfile && !userProfile) {
+    return null;
+  }
+  
+  // Don't render if complete profile is required but incomplete
+  if (requireCompleteProfile && userProfile) {
+    const hasBasicInfo = userProfile.firstName || userProfile.fullName;
+    const hasAccountType = userProfile.accountType || userProfile.businessType;
+    
+    if (!hasBasicInfo || !hasAccountType) {
+      return null;
+    }
+  }
+  
+  // Don't render if complete profile is required but no profile exists
+  if (requireCompleteProfile && !userProfile) {
     return null;
   }
 

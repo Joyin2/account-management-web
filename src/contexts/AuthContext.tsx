@@ -14,15 +14,36 @@ import { auth, db } from '@/lib/firebase';
 
 // Define the business type enum to match BusinessTypeSelector IDs
 export type BusinessType = 'manufacturer' | 'retailer' | 'restaurant' | 'service' | 'wholesale' | 'construction' | 'ecommerce' | 'general' | 'distributor';
+export type AccountType = 'personal' | 'business' | 'enterprise';
 
 interface UserProfile {
   uid: string;
   email: string;
-  fullName: string;
+  // Support both old and new formats
+  fullName?: string; // Legacy format
+  firstName?: string; // New format
+  lastName?: string; // New format
   phone: string;
-  businessType: BusinessType;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  // Support both old and new formats
+  businessType?: BusinessType; // Legacy format
+  accountType?: AccountType; // New format
+  // Additional fields from SignupForm
+  companyName?: string;
+  industry?: string;
+  companySize?: string;
+  website?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  preferences?: {
+    newsletter: boolean;
+  };
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 interface AuthContextType {
@@ -59,10 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            setUserProfile(userDoc.data() as UserProfile);
+            const userData = userDoc.data();
+            // Convert Date objects to Timestamp for consistency
+            if (userData.createdAt instanceof Date) {
+              userData.createdAt = Timestamp.fromDate(userData.createdAt);
+            }
+            if (userData.updatedAt instanceof Date) {
+              userData.updatedAt = Timestamp.fromDate(userData.updatedAt);
+            }
+            setUserProfile(userData as UserProfile);
+          } else {
+            // User exists in Auth but no profile in Firestore
+            console.warn('User authenticated but no profile found in Firestore');
+            setUserProfile(null);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
+          setUserProfile(null);
         }
       } else {
         setUserProfile(null);
