@@ -10,6 +10,7 @@ import ExpenditureTransactionForm from './ExpenditureTransactionForm';
 import CapitalDrawingsTransactionForm from './CapitalDrawingsTransactionForm';
 import BankTransactionForm from './BankTransactionForm';
 import LoanTransactionForm from './LoanTransactionForm';
+import EquityTransactionForm from './EquityTransactionForm';
 
 interface TransactionFormData {
   type: TransactionType;
@@ -29,7 +30,7 @@ interface TransactionFormProps {
   editData?: TransactionFormData;
 }
 
-type TransactionType = 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN';
+type TransactionType = 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN' | 'EQUITY';
 
 
 
@@ -107,6 +108,14 @@ export default function TransactionForm({
       case 'LOAN':
         return (
           <LoanTransactionForm
+            onSubmit={handleFormSubmit}
+            onBack={handleBack}
+            editData={editData}
+          />
+        );
+      case 'EQUITY':
+        return (
+          <EquityTransactionForm
             onSubmit={handleFormSubmit}
             onBack={handleBack}
             editData={editData}

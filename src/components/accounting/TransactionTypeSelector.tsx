@@ -8,10 +8,11 @@ import {
   CreditCard,
   Building2,
   Banknote,
-  HandCoins
+  HandCoins,
+  Users
 } from 'lucide-react';
 
-type TransactionType = 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN';
+type TransactionType = 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN' | 'EQUITY';
 
 interface TransactionTypeSelectorProps {
   onSelectType: (type: TransactionType) => void;
@@ -72,6 +73,15 @@ const transactionTypes = [
     icon: HandCoins,
     color: 'bg-orange-500',
     hoverColor: 'hover:bg-orange-600'
+  },
+  {
+    id: 'equity',
+    name: 'EQUITY',
+    type: 'EQUITY',
+    description: 'Equity & capital transactions',
+    icon: Users,
+    color: 'bg-purple-500',
+    hoverColor: 'hover:bg-purple-600'
   }
 ];
 

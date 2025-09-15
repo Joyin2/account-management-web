@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { UserRole } from '@/types/roles';
 
 // Define the business type enum to match BusinessTypeSelector IDs
 export type BusinessType = 'manufacturer' | 'retailer' | 'restaurant' | 'service' | 'wholesale' | 'construction' | 'ecommerce' | 'general' | 'distributor';
@@ -42,6 +43,14 @@ interface UserProfile {
   preferences?: {
     newsletter: boolean;
   };
+  // Role-based access control
+  role: UserRole;
+  organizationId: string;
+  department?: string;
+  position?: string;
+  managerId?: string;
+  permissions?: string[];
+  isActive: boolean;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }
@@ -81,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+
             // Convert Date objects to Timestamp for consistency
             if (userData.createdAt instanceof Date) {
               userData.createdAt = Timestamp.fromDate(userData.createdAt);
@@ -88,7 +98,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (userData.updatedAt instanceof Date) {
               userData.updatedAt = Timestamp.fromDate(userData.updatedAt);
             }
-            setUserProfile(userData as UserProfile);
+
+            // Check if user profile has required fields, if not, update it
+            if (!userData.role || !userData.organizationId || userData.isActive === undefined) {
+              console.log('Updating user profile with missing required fields');
+
+              const defaultOrgId = userData.organizationId || `org_${user.uid}_${Date.now()}`;
+              const updatedProfile = {
+                ...userData,
+                role: userData.role || 'admin',
+                organizationId: defaultOrgId,
+                isActive: userData.isActive !== undefined ? userData.isActive : true,
+                updatedAt: Timestamp.now()
+              };
+
+              // Update the user profile in Firestore
+              await setDoc(doc(db, 'users', user.uid), updatedProfile);
+
+              // Create organization if it doesn't exist
+              if (!userData.organizationId) {
+                const organizationData = {
+                  id: defaultOrgId,
+                  name: 'General Business',
+                  type: 'business',
+                  industry: 'General',
+                  address: {
+                    street: '',
+                    city: '',
+                    state: '',
+                    zipCode: '',
+                    country: 'India'
+                  },
+                  contactInfo: {
+                    email: user.email || '',
+                    phone: userData.phone || '',
+                    website: ''
+                  },
+                  settings: {
+                    currency: 'INR',
+                    timezone: 'Asia/Kolkata',
+                    dateFormat: 'DD/MM/YYYY'
+                  },
+                  members: [user.uid],
+                  createdBy: user.uid,
+                  createdAt: Timestamp.now(),
+                  updatedAt: Timestamp.now(),
+                  isActive: true
+                };
+
+                await setDoc(doc(db, 'organizations', defaultOrgId), organizationData);
+              }
+
+              setUserProfile(updatedProfile as UserProfile);
+            } else {
+              setUserProfile(userData as UserProfile);
+            }
           } else {
             // User exists in Auth but no profile in Firestore
             console.warn('User authenticated but no profile found in Firestore');
@@ -135,17 +199,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Create user document in Firestore
       const now = Timestamp.now();
+
+      // Create a default organization ID for new users
+      const defaultOrgId = `org_${user.uid}_${Date.now()}`;
+
       const userProfile: UserProfile = {
         uid: user.uid,
         email: user.email!,
         fullName,
         phone,
         businessType: businessType, // Store the business type ID
+        role: 'admin', // Default role for new users
+        organizationId: defaultOrgId,
+        isActive: true,
         createdAt: now,
         updatedAt: now
       };
 
-      await setDoc(doc(db, 'users', user.uid), userProfile);
+      // Create the organization document
+      const organizationData = {
+        id: defaultOrgId,
+        name: 'General Business',
+        type: 'business',
+        industry: 'General',
+        address: {
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'India'
+        },
+        contactInfo: {
+          email: user.email || '',
+          phone: phone || '',
+          website: ''
+        },
+        settings: {
+          currency: 'INR',
+          timezone: 'Asia/Kolkata',
+          dateFormat: 'DD/MM/YYYY'
+        },
+        members: [user.uid],
+        createdBy: user.uid,
+        createdAt: now,
+        updatedAt: now,
+        isActive: true
+      };
+
+      // Save both user profile and organization
+      await Promise.all([
+        setDoc(doc(db, 'users', user.uid), userProfile),
+        setDoc(doc(db, 'organizations', defaultOrgId), organizationData)
+      ]);
+
       setUserProfile(userProfile);
       return user;
     } catch (error) {

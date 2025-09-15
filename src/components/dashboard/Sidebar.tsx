@@ -30,7 +30,10 @@ import {
   ShoppingBag,
   ClipboardList,
   Target,
-  Calendar
+  Calendar,
+  HandCoins,
+  Banknote,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessType, businessTypes } from '@/components/auth/BusinessTypeSelector';
@@ -78,10 +81,34 @@ const getMenuItems = (businessType: string): MenuItem[] => {
       href: '/accounting'
     },
     {
+      id: 'bank',
+      label: 'Bank',
+      icon: Banknote,
+      href: '/bank'
+    },
+    {
+      id: 'loan',
+      label: 'Loan',
+      icon: HandCoins,
+      href: '/loan'
+    },
+    {
+      id: 'equity',
+      label: 'Equity',
+      icon: Users,
+      href: '/equity'
+    },
+    {
       id: 'inventory',
       label: 'Inventory',
       icon: Package,
       href: '/inventory'
+    },
+    {
+      id: 'employees',
+      label: 'Employees',
+      icon: UserCheck,
+      href: '/employees'
     },
     {
       id: 'reports',

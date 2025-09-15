@@ -15,7 +15,7 @@ import { db } from '@/lib/firebase';
 export interface FirestoreTransaction {
   id?: string;
   date: Timestamp;
-  type: 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN';
+  type: 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN' | 'EQUITY';
   subType?: string;
   amount: number;
   description: string;
@@ -23,6 +23,7 @@ export interface FirestoreTransaction {
   buyerName?: string;
   paymentMethod: string;
   gstApplicable: boolean;
+  gstPercentage?: string;
   gstn?: string;
   gstType?: 'Regular' | 'Composite';
   remarks?: string;
@@ -45,6 +46,59 @@ export interface FirestoreTransaction {
   loanProvider?: string;
   interestRate?: number;
   emiAmount?: number;
+  // Payment tracking fields
+  totalAmount?: number;
+  paidAmount?: number;
+  outstandingAmount?: number;
+  dueDate?: Timestamp;
+  paymentDate?: Timestamp;
+  advancePayment?: number;
+  paymentStatus?: 'pending' | 'partial' | 'paid' | 'overdue';
+  // Detailed information fields
+  showDetailedInfo?: boolean;
+  detailedInfo?: {
+    tds?: {
+      applicable: boolean;
+      percentage?: string;
+      amount?: string;
+      panNumber?: string;
+      tdsSection?: string;
+    };
+    tcs?: {
+      applicable: boolean;
+      percentage?: string;
+      amount?: string;
+    };
+    providentFund?: {
+      applicable: boolean;
+      employeeContribution?: string;
+      employerContribution?: string;
+      pfNumber?: string;
+    };
+    insurance?: {
+      applicable: boolean;
+      policyNumber?: string;
+      premium?: string;
+      coverage?: string;
+      provider?: string;
+    };
+    transfers?: {
+      applicable: boolean;
+      fromAccount?: string;
+      toAccount?: string;
+      transferType?: string;
+      referenceNumber?: string;
+    };
+    salary?: {
+      basicSalary?: string;
+      hra?: string;
+      allowances?: string;
+      deductions?: string;
+      netSalary?: string;
+      employeeId?: string;
+      designation?: string;
+    };
+  };
 }
 
 const COLLECTION_NAME = 'transactions';
@@ -85,15 +139,36 @@ export const transactionService = {
       }
       
       // Validate transaction type
-      const validTypes = ['BUY', 'SELL', 'EXPENDITURE', 'CAPITAL_DRAWINGS', 'BANK', 'LOAN'];
+      const validTypes = ['BUY', 'SELL', 'EXPENDITURE', 'CAPITAL_DRAWINGS', 'BANK', 'LOAN', 'EQUITY'];
       if (!validTypes.includes(transactionData.type)) {
         throw new Error(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
       }
-      
+
       // Validate payment method
       const validPaymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
       if (!validPaymentMethods.includes(transactionData.paymentMethod)) {
         throw new Error(`Invalid payment method. Must be one of: ${validPaymentMethods.join(', ')}`);
+      }
+
+      // Validate payment tracking fields if present
+      if (transactionData.paymentStatus) {
+        const validStatuses = ['pending', 'partial', 'paid', 'overdue'];
+        if (!validStatuses.includes(transactionData.paymentStatus)) {
+          throw new Error(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`);
+        }
+      }
+
+      // Validate payment amounts
+      if (transactionData.paidAmount !== undefined && transactionData.paidAmount < 0) {
+        throw new Error('Paid amount cannot be negative');
+      }
+
+      if (transactionData.advancePayment !== undefined && transactionData.advancePayment < 0) {
+        throw new Error('Advance payment cannot be negative');
+      }
+
+      if (transactionData.totalAmount !== undefined && transactionData.totalAmount <= 0) {
+        throw new Error('Total amount must be positive');
       }
       
       const docRef = await addDoc(collection(db, COLLECTION_NAME), transactionData);
@@ -110,19 +185,36 @@ export const transactionService = {
   // Get all transactions for an organization
   async getTransactions(organizationId: string): Promise<FirestoreTransaction[]> {
     try {
+      console.log('DEBUG: Querying transactions for organizationId:', organizationId);
       const q = query(
         collection(db, COLLECTION_NAME),
         where('organizationId', '==', organizationId),
         orderBy('date', 'desc')
       );
       
+      console.log('DEBUG: Executing Firestore query...');
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as FirestoreTransaction[];
+      console.log('DEBUG: Query completed. Document count:', querySnapshot.docs.length);
+      
+      const transactions = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('DEBUG: Transaction document:', { id: doc.id, data });
+        return {
+          id: doc.id,
+          ...data
+        };
+      }) as FirestoreTransaction[];
+      
+      console.log('DEBUG: Returning transactions:', transactions);
+      return transactions;
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('DEBUG: Error fetching transactions:', error);
+      console.error('DEBUG: Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as any)?.code,
+        stack: error instanceof Error ? error.stack : undefined,
+        organizationId
+      });
       throw new Error('Failed to fetch transactions');
     }
   },

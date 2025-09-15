@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
+import NotificationCenter from '@/components/common/NotificationCenter';
 import { businessTypes } from '@/components/auth/BusinessTypeSelector';
 import { Bell, Search, Menu } from 'lucide-react';
 
@@ -125,10 +126,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
               </div>
 
               {/* Notifications */}
-              <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationCenter />
 
               {/* User Profile */}
               <div className="flex items-center space-x-3">

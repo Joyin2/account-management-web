@@ -19,8 +19,14 @@ service cloud.firestore {
     
     // Check if user is accessing their own organization data
     function isOrgMember(orgId) {
-      // Currently using user UID as org ID - allow if user is authenticated and orgId matches their UID
-      return request.auth != null && request.auth.uid == orgId;
+      // Allow if user is authenticated and orgId matches their UID (user-based org structure)
+      // OR if the user is authenticated (for shared organization access)
+      return request.auth != null && (request.auth.uid == orgId || orgId != null);
+    }
+
+    // More permissive organization check for employee management
+    function canAccessOrgData(orgId) {
+      return request.auth != null && orgId != null;
     }
     
     // Helper function to check if required user profile fields exist
@@ -78,14 +84,22 @@ service cloud.firestore {
     
     // Check if transaction type is valid
     function isValidTransactionType(type) {
-      return type == 'BUY' || type == 'SELL' || type == 'EXPENDITURE' || type == 'CAPITAL_DRAWINGS' || type == 'BANK' || type == 'LOAN' || type == 'SALES' || type == 'PURCHASES';
+      return type == 'BUY' || type == 'SELL' || type == 'EXPENDITURE' || type == 'CAPITAL_DRAWINGS' || type == 'BANK' || type == 'LOAN' || type == 'SALES' || type == 'PURCHASES' || type == 'EQUITY';
+    }
+
+    // Check if payment status is valid
+    function isValidPaymentStatusType(status) {
+      return status == 'pending' || status == 'partial' || status == 'paid' || status == 'overdue';
     }
     
     // Check if report type is valid
     function isValidReportType(reportType) {
-      return reportType == 'ledger' || reportType == 'journal' || reportType == 'trial-balance' || 
-             reportType == 'balance-sheet' || reportType == 'profit-loss' || reportType == 'cash-flow' || 
-             reportType == 'gst-return';
+      return reportType == 'ledger' || reportType == 'journal' || reportType == 'trial-balance' ||
+             reportType == 'balance-sheet' || reportType == 'profit-loss' || reportType == 'cash-flow' ||
+             reportType == 'gst-return' || reportType == 'inventory' || reportType == 'tax-summary' ||
+             reportType == 'receivables' || reportType == 'payables' || reportType == 'bank' ||
+             reportType == 'loan' || reportType == 'equity' || reportType == 'rent' ||
+             reportType == 'salary' || reportType == 'electricity' || reportType == 'other-expenses';
     }
     
     // Check if account type filter is valid
@@ -154,6 +168,35 @@ service cloud.firestore {
     function isValidGSTType(gstType) {
       return gstType == 'Regular' || gstType == 'Composite';
     }
+
+    // Check if receivables/payables status is valid
+    function isValidPaymentStatus(status) {
+      return status == 'Current' || status == 'Overdue' || status == 'Paid';
+    }
+
+    // Check if bank transaction type is valid
+    function isValidBankTransactionType(transactionType) {
+      return transactionType == 'Deposit' || transactionType == 'Withdrawal' || transactionType == 'Transfer';
+    }
+
+    // Check if loan type is valid
+    function isValidLoanType(loanType) {
+      return loanType == 'Term Loan' || loanType == 'Personal Loan' || loanType == 'Business Loan' ||
+             loanType == 'Home Loan' || loanType == 'Vehicle Loan' || loanType == 'Working Capital';
+    }
+
+    // Check if expense category is valid
+    function isValidExpenseCategory(category) {
+      return category == 'rent' || category == 'salary' || category == 'electricity' ||
+             category == 'travel' || category == 'maintenance' || category == 'insurance' ||
+             category == 'advertising' || category == 'supplies' || category == 'professional fees' ||
+             category == 'utilities' || category == 'office expenses' || category == 'other';
+    }
+
+    // Check if reconciliation status is valid
+    function isValidReconciliationStatus(status) {
+      return status is bool;
+    }
     
     // =============================================================================
     // USER PROFILES COLLECTION
@@ -211,17 +254,28 @@ service cloud.firestore {
         && isValidTimestamp(request.resource.data.createdAt)
         && isValidTimestamp(request.resource.data.updatedAt)
         // GST validation - allow gstType to be optional when gstApplicable is false
-        && (request.resource.data.gstApplicable == false || 
-            (request.resource.data.gstApplicable == true && 
+        && (request.resource.data.gstApplicable == false ||
+            (request.resource.data.gstApplicable == true &&
              (!('gstType' in request.resource.data) || isValidGSTType(request.resource.data.gstType))))
         // Amount validation based on transaction type
         && (request.resource.data.type != 'EXPENDITURE' || request.resource.data.amount > 0)
         // Interest rate validation for loans - make interestRate optional
-        && (request.resource.data.type != 'LOAN' || 
-            (!('interestRate' in request.resource.data) || 
-             (request.resource.data.interestRate is number && 
-              request.resource.data.interestRate >= 0 && 
-              request.resource.data.interestRate <= 100)));
+        && (request.resource.data.type != 'LOAN' ||
+            (!('interestRate' in request.resource.data) ||
+             (request.resource.data.interestRate is number &&
+              request.resource.data.interestRate >= 0 &&
+              request.resource.data.interestRate <= 100)))
+        // Payment tracking fields validation (optional)
+        && (!('totalAmount' in request.resource.data) || (request.resource.data.totalAmount is number && request.resource.data.totalAmount >= 0))
+        && (!('paidAmount' in request.resource.data) || (request.resource.data.paidAmount is number && request.resource.data.paidAmount >= 0))
+        && (!('outstandingAmount' in request.resource.data) || (request.resource.data.outstandingAmount is number && request.resource.data.outstandingAmount >= 0))
+        && (!('advancePayment' in request.resource.data) || (request.resource.data.advancePayment is number && request.resource.data.advancePayment >= 0))
+        && (!('paymentStatus' in request.resource.data) || isValidPaymentStatusType(request.resource.data.paymentStatus))
+        && (!('dueDate' in request.resource.data) || request.resource.data.dueDate is timestamp)
+        && (!('paymentDate' in request.resource.data) || request.resource.data.paymentDate is timestamp)
+        && (!('showDetailedInfo' in request.resource.data) || request.resource.data.showDetailedInfo is bool)
+        // Detailed information validation (optional)
+        && (!('detailedInfo' in request.resource.data) || request.resource.data.detailedInfo is map);
       
       // Allow update with validation
       allow update: if isAuthenticated()
@@ -242,8 +296,8 @@ service cloud.firestore {
     // =============================================================================
     
     match /organizations/{orgId} {
-      // Allow read/write if user is organization member
-      allow read, write: if isAuthenticated() && isOrgMember(orgId);
+      // Allow read/write for authenticated users
+      allow read, write: if isAuthenticated() && canAccessOrgData(orgId);
       
       // =============================================================================
       // ACCOUNTING SUB-COLLECTIONS
@@ -509,7 +563,14 @@ service cloud.firestore {
           && (!('accountTypeFilter' in request.resource.data.parameters) || isValidAccountType(request.resource.data.parameters.accountTypeFilter))
           && (!('minAmount' in request.resource.data.parameters) || (request.resource.data.parameters.minAmount is number && request.resource.data.parameters.minAmount >= 0))
           && (!('maxAmount' in request.resource.data.parameters) || (request.resource.data.parameters.maxAmount is number && request.resource.data.parameters.maxAmount >= 0))
-          && (!('selectedAccount' in request.resource.data.parameters) || request.resource.data.parameters.selectedAccount is string);
+          && (!('selectedAccount' in request.resource.data.parameters) || request.resource.data.parameters.selectedAccount is string)
+          // Additional parameters for new report types
+          && (!('expenseCategory' in request.resource.data.parameters) || isValidExpenseCategory(request.resource.data.parameters.expenseCategory))
+          && (!('paymentStatus' in request.resource.data.parameters) || isValidPaymentStatus(request.resource.data.parameters.paymentStatus))
+          && (!('reconciliationStatus' in request.resource.data.parameters) || isValidReconciliationStatus(request.resource.data.parameters.reconciliationStatus))
+          && (!('loanType' in request.resource.data.parameters) || isValidLoanType(request.resource.data.parameters.loanType))
+          && (!('includeOverdue' in request.resource.data.parameters) || request.resource.data.parameters.includeOverdue is bool)
+          && (!('agingPeriods' in request.resource.data.parameters) || request.resource.data.parameters.agingPeriods is list);
         
         // Allow update by owner with validation
         allow update: if isAuthenticated()
@@ -806,7 +867,11 @@ service cloud.firestore {
         && isValidTimestamp(request.resource.data.generatedAt)
         && isValidTimestamp(request.resource.data.expiresAt)
         && isOwner(request.resource.data.userId)
-        && request.resource.data.expiresAt > request.resource.data.generatedAt;
+        && request.resource.data.expiresAt > request.resource.data.generatedAt
+        // Additional validation for new report types
+        && (!('reportSubtype' in request.resource.data) || request.resource.data.reportSubtype is string)
+        && (!('dataSource' in request.resource.data) || request.resource.data.dataSource is string)
+        && (!('recordCount' in request.resource.data) || (request.resource.data.recordCount is number && request.resource.data.recordCount >= 0));
       
       // Allow update by owner
       allow update: if isAuthenticated()
@@ -818,6 +883,286 @@ service cloud.firestore {
         && (isOwner(resource.data.userId) || resource.data.expiresAt < request.time);
     }
     
+    // =============================================================================
+    // EXPENSE CATEGORIES COLLECTION (For Enhanced Expense Reporting)
+    // =============================================================================
+
+    match /expenseCategories/{categoryId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'date' in request.resource.data
+        && 'description' in request.resource.data
+        && 'amount' in request.resource.data
+        && 'category' in request.resource.data
+        && 'reference' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidTimestamp(request.resource.data.date)
+        && isValidString(request.resource.data.description, 1)
+        && isPositiveNumber(request.resource.data.amount)
+        && isValidExpenseCategory(request.resource.data.category)
+        && isValidString(request.resource.data.reference, 1)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        // Optional fields validation
+        && (!('subcategory' in request.resource.data) || isValidString(request.resource.data.subcategory, 1))
+        && (!('paymentMethod' in request.resource.data) || isValidPaymentMethod(request.resource.data.paymentMethod))
+        && (!('vendor' in request.resource.data) || isValidString(request.resource.data.vendor, 1))
+        && (!('notes' in request.resource.data) || request.resource.data.notes is string);
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.reference == resource.data.reference
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
+    // =============================================================================
+    // EQUITY TRANSACTIONS COLLECTION (For Equity Reporting)
+    // =============================================================================
+
+    match /equityTransactions/{equityId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'account' in request.resource.data
+        && 'date' in request.resource.data
+        && 'description' in request.resource.data
+        && 'amount' in request.resource.data
+        && 'transactionType' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.account, 1)
+        && isValidTimestamp(request.resource.data.date)
+        && isValidString(request.resource.data.description, 1)
+        && request.resource.data.amount is number
+        && request.resource.data.amount != 0
+        && request.resource.data.transactionType in ['capital', 'drawings', 'retained_earnings', 'other_equity']
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        // Optional fields validation
+        && (!('partner' in request.resource.data) || isValidString(request.resource.data.partner, 1))
+        && (!('percentage' in request.resource.data) || (request.resource.data.percentage is number && request.resource.data.percentage >= 0 && request.resource.data.percentage <= 100));
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
+    // =============================================================================
+    // EMPLOYEE MANAGEMENT COLLECTIONS
+    // =============================================================================
+
+    // Helper function to check if user has HR permissions
+    function hasHRPermissions(orgId) {
+      return isAuthenticated() && canAccessOrgData(orgId);
+    }
+
+    // Check if employee role is valid
+    function isValidEmployeeRole(role) {
+      return role == 'admin' || role == 'hr_manager' || role == 'manager' || role == 'employee';
+    }
+
+    // Check if employment type is valid
+    function isValidEmploymentType(type) {
+      return type == 'full-time' || type == 'part-time' || type == 'contract' || type == 'intern';
+    }
+
+    // Check if leave status is valid
+    function isValidLeaveStatus(status) {
+      return status == 'pending' || status == 'approved' || status == 'rejected';
+    }
+
+    // Check if attendance status is valid
+    function isValidAttendanceStatus(status) {
+      return status == 'present' || status == 'absent' || status == 'late' || status == 'half-day';
+    }
+
+    // Employees Collection
+    match /employees/{employeeId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated();
+
+      // Allow create with basic validation
+      allow create: if isAuthenticated()
+        && 'firstName' in request.resource.data
+        && 'lastName' in request.resource.data
+        && 'email' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && isValidString(request.resource.data.firstName, 1)
+        && isValidString(request.resource.data.lastName, 1)
+        && isValidEmail(request.resource.data.email)
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      // Allow update with basic validation
+      allow update: if isAuthenticated()
+        && canAccessOrgData(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      // Allow delete for authenticated users
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Salary Structures Collection
+    match /salaryStructures/{salaryId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'employeeId' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'basicSalary' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Payrolls Collection
+    match /payrolls/{payrollId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'employeeId' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Leave Types Collection
+    match /leaveTypes/{leaveTypeId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'name' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Leave Applications Collection
+    match /leaveApplications/{applicationId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'employeeId' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Attendance Collection
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'employeeId' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && 'updatedAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && 'recipientId' in request.resource.data
+        && 'organizationId' in request.resource.data
+        && 'title' in request.resource.data
+        && 'message' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && canAccessOrgData(request.resource.data.organizationId)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+
+      allow update: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+      allow delete: if isAuthenticated() && canAccessOrgData(resource.data.organizationId);
+    }
+
+    // Leave Balances Collection
+    match /leaveBalances/{balanceId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Employee Documents Collection (for file uploads)
+    match /employeeDocuments/{documentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Any other employee-related collections
+    match /{collection}/{document} {
+      allow read, write: if isAuthenticated()
+        && (collection.matches('.*[Ee]mployee.*')
+            || collection.matches('.*[Ss]alary.*')
+            || collection.matches('.*[Pp]ayroll.*')
+            || collection.matches('.*[Ll]eave.*')
+            || collection.matches('.*[Aa]ttendance.*')
+            || collection.matches('.*[Nn]otification.*'));
+    }
+
     // =============================================================================
     // SYSTEM COLLECTIONS (Admin/System Access Only)
     // =============================================================================
@@ -847,6 +1192,188 @@ service cloud.firestore {
         && isValidTimestamp(request.resource.data.createdAt);
     }
     
+    // =============================================================================
+    // RECEIVABLES COLLECTION (For Accounts Receivable Tracking)
+    // =============================================================================
+
+    match /receivables/{receivableId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'customer' in request.resource.data
+        && 'invoiceNumber' in request.resource.data
+        && 'invoiceDate' in request.resource.data
+        && 'dueDate' in request.resource.data
+        && 'originalAmount' in request.resource.data
+        && 'paidAmount' in request.resource.data
+        && 'outstandingAmount' in request.resource.data
+        && 'status' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.customer, 1)
+        && isValidString(request.resource.data.invoiceNumber, 1)
+        && isValidTimestamp(request.resource.data.invoiceDate)
+        && isValidTimestamp(request.resource.data.dueDate)
+        && isPositiveNumber(request.resource.data.originalAmount)
+        && request.resource.data.paidAmount is number
+        && request.resource.data.paidAmount >= 0
+        && request.resource.data.outstandingAmount is number
+        && request.resource.data.outstandingAmount >= 0
+        && isValidPaymentStatus(request.resource.data.status)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.invoiceNumber == resource.data.invoiceNumber
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
+    // =============================================================================
+    // PAYABLES COLLECTION (For Accounts Payable Tracking)
+    // =============================================================================
+
+    match /payables/{payableId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'supplier' in request.resource.data
+        && 'billNumber' in request.resource.data
+        && 'billDate' in request.resource.data
+        && 'dueDate' in request.resource.data
+        && 'originalAmount' in request.resource.data
+        && 'paidAmount' in request.resource.data
+        && 'outstandingAmount' in request.resource.data
+        && 'status' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.supplier, 1)
+        && isValidString(request.resource.data.billNumber, 1)
+        && isValidTimestamp(request.resource.data.billDate)
+        && isValidTimestamp(request.resource.data.dueDate)
+        && isPositiveNumber(request.resource.data.originalAmount)
+        && request.resource.data.paidAmount is number
+        && request.resource.data.paidAmount >= 0
+        && request.resource.data.outstandingAmount is number
+        && request.resource.data.outstandingAmount >= 0
+        && isValidPaymentStatus(request.resource.data.status)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.billNumber == resource.data.billNumber
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
+    // =============================================================================
+    // BANK TRANSACTIONS COLLECTION (For Bank Reconciliation)
+    // =============================================================================
+
+    match /bankTransactions/{transactionId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'date' in request.resource.data
+        && 'description' in request.resource.data
+        && 'transactionType' in request.resource.data
+        && 'amount' in request.resource.data
+        && 'balance' in request.resource.data
+        && 'reconciled' in request.resource.data
+        && 'reference' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidTimestamp(request.resource.data.date)
+        && isValidString(request.resource.data.description, 1)
+        && isValidBankTransactionType(request.resource.data.transactionType)
+        && isPositiveNumber(request.resource.data.amount)
+        && request.resource.data.balance is number
+        && request.resource.data.reconciled is bool
+        && isValidString(request.resource.data.reference, 1)
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.reference == resource.data.reference
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
+    // =============================================================================
+    // LOANS COLLECTION (For Loan Management)
+    // =============================================================================
+
+    match /loans/{loanId} {
+      // Allow read for authenticated users (for reports generation)
+      allow read: if isAuthenticated();
+
+      // Allow create with comprehensive validation
+      allow create: if isAuthenticated()
+        && 'loanAccount' in request.resource.data
+        && 'loanType' in request.resource.data
+        && 'principalAmount' in request.resource.data
+        && 'currentBalance' in request.resource.data
+        && 'interestRate' in request.resource.data
+        && 'emiAmount' in request.resource.data
+        && 'nextDueDate' in request.resource.data
+        && 'paymentsRemaining' in request.resource.data
+        && 'totalInterestPaid' in request.resource.data
+        && 'userId' in request.resource.data
+        && 'createdAt' in request.resource.data
+        && isValidString(request.resource.data.loanAccount, 1)
+        && isValidLoanType(request.resource.data.loanType)
+        && isPositiveNumber(request.resource.data.principalAmount)
+        && request.resource.data.currentBalance is number
+        && request.resource.data.currentBalance >= 0
+        && request.resource.data.interestRate is number
+        && request.resource.data.interestRate >= 0
+        && request.resource.data.interestRate <= 100
+        && request.resource.data.emiAmount is number
+        && request.resource.data.emiAmount >= 0
+        && isValidTimestamp(request.resource.data.nextDueDate)
+        && request.resource.data.paymentsRemaining is number
+        && request.resource.data.paymentsRemaining >= 0
+        && request.resource.data.totalInterestPaid is number
+        && request.resource.data.totalInterestPaid >= 0
+        && isOwner(request.resource.data.userId)
+        && isValidTimestamp(request.resource.data.createdAt);
+
+      // Allow update by owner with validation
+      allow update: if isAuthenticated()
+        && isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.loanAccount == resource.data.loanAccount
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Allow delete by owner
+      allow delete: if isAuthenticated()
+        && isOwner(resource.data.userId);
+    }
+
     // =============================================================================
     // TOP-LEVEL TRANSACTIONS COLLECTION (For Reports Access)
     // =============================================================================

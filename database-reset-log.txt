@@ -1,0 +1,148 @@
+[2025-09-04T05:11:23.862Z] [INFO] ================================================================================
+[2025-09-04T05:11:23.869Z] [INFO] FIRESTORE DATABASE RESET OPERATION STARTED
+[2025-09-04T05:11:23.875Z] [INFO] ================================================================================
+[2025-09-04T05:11:23.948Z] [INFO] Initializing Firebase Admin SDK...
+[2025-09-04T05:11:23.982Z] [ERROR] Failed to initialize Firebase Admin SDK
+[2025-09-04T05:11:23.999Z] [ERROR] Error details: Service account key not found at ./serviceAccountKey.json
+[2025-09-04T05:11:24.046Z] [ERROR] Stack trace: Error: Service account key not found at ./serviceAccountKey.json
+    at initializeFirebase (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:128:13)
+    at main (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:332:10)
+    at Object.<anonymous> (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:437:3)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+[2025-09-04T05:11:24.049Z] [ERROR] Database reset operation failed
+[2025-09-04T05:11:24.052Z] [ERROR] Error details: Service account key not found at ./serviceAccountKey.json
+[2025-09-04T05:11:24.061Z] [ERROR] Stack trace: Error: Service account key not found at ./serviceAccountKey.json
+    at initializeFirebase (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:128:13)
+    at main (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:332:10)
+    at Object.<anonymous> (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-database.js:437:3)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+[2025-09-04T05:12:49.644Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:12:49.653Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:12:49.655Z] [INFO] Created backup directory: ./firestore-backup
+[2025-09-04T05:12:49.657Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:12:51.067Z] [WARNING] Could not analyze collection 'transactions': Missing or insufficient permissions.
+[2025-09-04T05:12:51.627Z] [WARNING] Could not analyze collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:12:52.028Z] [WARNING] Could not analyze collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:12:52.415Z] [WARNING] Could not analyze collection 'systemConfig': Missing or insufficient permissions.
+[2025-09-04T05:12:52.795Z] [WARNING] Could not analyze collection 'businessTypes': Missing or insufficient permissions.
+[2025-09-04T05:12:53.193Z] [WARNING] Could not analyze collection 'inventory': Missing or insufficient permissions.
+[2025-09-04T05:12:53.578Z] [WARNING] Could not analyze collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:12:53.580Z] [INFO] Total collections with data: 0
+[2025-09-04T05:12:53.581Z] [INFO] Total documents across all collections: 0
+[2025-09-04T05:19:50.442Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:19:50.448Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:19:50.450Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:19:51.662Z] [WARNING] Could not analyze collection 'transactions': Missing or insufficient permissions.
+[2025-09-04T05:19:52.242Z] [WARNING] Could not analyze collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:19:52.646Z] [WARNING] Could not analyze collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:19:53.022Z] [WARNING] Could not analyze collection 'systemConfig': Missing or insufficient permissions.
+[2025-09-04T05:19:53.427Z] [WARNING] Could not analyze collection 'businessTypes': Missing or insufficient permissions.
+[2025-09-04T05:19:53.792Z] [WARNING] Could not analyze collection 'inventory': Missing or insufficient permissions.
+[2025-09-04T05:19:54.152Z] [WARNING] Could not analyze collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:19:54.200Z] [INFO] Total collections with data: 0
+[2025-09-04T05:19:54.203Z] [INFO] Total documents across all collections: 0
+[2025-09-04T05:20:37.853Z] [SUCCESS] All confirmations passed. Proceeding with database reset...
+[2025-09-04T05:20:47.401Z] [INFO] Creating backup of existing data...
+[2025-09-04T05:20:47.402Z] [SUCCESS] Backup completed
+[2025-09-04T05:20:47.403Z] [INFO] Starting deletion process...
+[2025-09-04T05:20:47.405Z] [SUCCESS] Deleted 0 total documents
+[2025-09-04T05:20:47.407Z] [INFO] Recreating empty collections...
+[2025-09-04T05:20:48.226Z] [ERROR] Failed to recreate collection 'transactions': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:48.990Z] [ERROR] Failed to recreate collection 'users': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:49.725Z] [ERROR] Failed to recreate collection 'organizations': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:50.435Z] [ERROR] Failed to recreate collection 'systemConfig': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:52.005Z] [ERROR] Failed to recreate collection 'businessTypes': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:52.740Z] [ERROR] Failed to recreate collection 'inventory': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:53.478Z] [ERROR] Failed to recreate collection 'test': 3 INVALID_ARGUMENT: Resource id "__temp_placeholder__" is invalid because it is reserved.
+[2025-09-04T05:20:53.479Z] [SUCCESS] All collections recreated as empty
+[2025-09-04T05:20:53.481Z] [INFO] Performing final verification...
+[2025-09-04T05:20:53.482Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:20:53.872Z] [WARNING] Could not analyze collection 'transactions': Missing or insufficient permissions.
+[2025-09-04T05:20:54.243Z] [WARNING] Could not analyze collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:20:54.637Z] [WARNING] Could not analyze collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:20:55.002Z] [WARNING] Could not analyze collection 'systemConfig': Missing or insufficient permissions.
+[2025-09-04T05:20:55.371Z] [WARNING] Could not analyze collection 'businessTypes': Missing or insufficient permissions.
+[2025-09-04T05:20:55.749Z] [WARNING] Could not analyze collection 'inventory': Missing or insufficient permissions.
+[2025-09-04T05:20:56.131Z] [WARNING] Could not analyze collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:20:56.132Z] [INFO] Total collections with data: 0
+[2025-09-04T05:20:56.133Z] [INFO] Total documents across all collections: 0
+[2025-09-04T05:20:56.136Z] [SUCCESS] ✅ Database reset completed successfully!
+[2025-09-04T05:20:56.141Z] [SUCCESS] ✅ All collections are now empty
+[2025-09-04T05:21:51.190Z] [WARNING] Process interrupted by user
+[2025-09-04T05:21:53.714Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:21:53.755Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:28:00.895Z] [INFO] Attempting to authenticate user: 
+[2025-09-04T05:28:01.708Z] [ERROR] Authentication failed: Firebase: Error (auth/api-key-not-valid.-please-pass-a-valid-api-key.).
+[2025-09-04T05:28:01.710Z] [ERROR] Database reset operation failed
+[2025-09-04T05:28:01.711Z] [ERROR] Error details: Firebase: Error (auth/api-key-not-valid.-please-pass-a-valid-api-key.).
+[2025-09-04T05:28:01.715Z] [ERROR] Stack trace: FirebaseError: Firebase: Error (auth/api-key-not-valid.-please-pass-a-valid-api-key.).
+    at createErrorInternal (C:\joyin projects\accountManagement\website\next-gen-accounts\node_modules\@firebase\auth\dist\node\totp-e8bbfd76.js:500:41)
+    at _fail (C:\joyin projects\accountManagement\website\next-gen-accounts\node_modules\@firebase\auth\dist\node\totp-e8bbfd76.js:475:11)
+    at _performFetchWithErrorHandling (C:\joyin projects\accountManagement\website\next-gen-accounts\node_modules\@firebase\auth\dist\node\totp-e8bbfd76.js:962:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _performSignInRequest (C:\joyin projects\accountManagement\website\next-gen-accounts\node_modules\@firebase\auth\dist\node\totp-e8bbfd76.js:977:28)
+    at async _signInWithCredential (C:\joyin projects\accountManagement\website\next-gen-accounts\node_modules\@firebase\auth\dist\node\totp-e8bbfd76.js:5697:22)
+    at async authenticateUser (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-auth.js:179:28)
+    at async main (C:\joyin projects\accountManagement\website\next-gen-accounts\reset-firestore-auth.js:413:12)
+[2025-09-04T05:28:45.980Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:28:45.986Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:29:40.499Z] [INFO] Attempting to authenticate user: joyin.las.2000@gmail.com
+[2025-09-04T05:29:42.219Z] [SUCCESS] Successfully authenticated as: joyin.las.2000@gmail.com
+[2025-09-04T05:29:42.221Z] [INFO] User ID: 4TjdekAZ8LglLepIOSSQbptFW0G2
+[2025-09-04T05:29:42.223Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:29:43.043Z] [INFO] Collection 'transactions': 19 documents
+[2025-09-04T05:29:43.430Z] [WARNING] Could not access collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:29:43.803Z] [WARNING] Could not access collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:29:44.225Z] [INFO] Collection 'systemConfig': empty
+[2025-09-04T05:29:44.616Z] [INFO] Collection 'businessTypes': empty
+[2025-09-04T05:29:45.021Z] [INFO] Collection 'inventory': 5 documents
+[2025-09-04T05:29:45.416Z] [WARNING] Could not access collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:29:45.418Z] [INFO] Accessible collections: 4
+[2025-09-04T05:29:45.418Z] [INFO] Total collections with data: 2
+[2025-09-04T05:29:45.420Z] [INFO] Total documents across all collections: 24
+[2025-09-04T05:37:10.933Z] [WARNING] Process interrupted by user
+[2025-09-04T05:38:05.786Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:38:05.792Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:38:37.473Z] [INFO] Attempting to authenticate user: joyin.las.2000@gmail.com
+[2025-09-04T05:38:38.658Z] [SUCCESS] Successfully authenticated as: joyin.las.2000@gmail.com
+[2025-09-04T05:38:38.659Z] [INFO] User ID: 4TjdekAZ8LglLepIOSSQbptFW0G2
+[2025-09-04T05:38:38.661Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:38:39.459Z] [INFO] Collection 'transactions': 19 documents
+[2025-09-04T05:38:39.871Z] [WARNING] Could not access collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:38:40.269Z] [WARNING] Could not access collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:38:40.686Z] [INFO] Collection 'systemConfig': empty
+[2025-09-04T05:38:41.754Z] [INFO] Collection 'businessTypes': empty
+[2025-09-04T05:38:42.157Z] [INFO] Collection 'inventory': 5 documents
+[2025-09-04T05:38:42.543Z] [WARNING] Could not access collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:38:42.545Z] [INFO] Accessible collections: 4
+[2025-09-04T05:38:42.546Z] [INFO] Total collections with data: 2
+[2025-09-04T05:38:42.547Z] [INFO] Total documents across all collections: 24
+[2025-09-04T05:39:14.340Z] [WARNING] Process interrupted by user
+[2025-09-04T05:39:19.394Z] [INFO] Initializing Firebase Client SDK...
+[2025-09-04T05:39:19.401Z] [SUCCESS] Firebase Client SDK initialized successfully
+[2025-09-04T05:39:40.651Z] [INFO] Attempting to authenticate user: joyin.las.2000@gmail.com
+[2025-09-04T05:39:42.243Z] [SUCCESS] Successfully authenticated as: joyin.las.2000@gmail.com
+[2025-09-04T05:39:42.244Z] [INFO] User ID: 4TjdekAZ8LglLepIOSSQbptFW0G2
+[2025-09-04T05:39:42.246Z] [INFO] Analyzing current database structure...
+[2025-09-04T05:39:43.016Z] [INFO] Collection 'transactions': 19 documents
+[2025-09-04T05:39:43.518Z] [WARNING] Could not access collection 'users': Missing or insufficient permissions.
+[2025-09-04T05:39:43.899Z] [WARNING] Could not access collection 'organizations': Missing or insufficient permissions.
+[2025-09-04T05:39:44.298Z] [INFO] Collection 'systemConfig': empty
+[2025-09-04T05:39:44.697Z] [INFO] Collection 'businessTypes': empty
+[2025-09-04T05:39:45.100Z] [INFO] Collection 'inventory': 5 documents
+[2025-09-04T05:39:45.480Z] [WARNING] Could not access collection 'test': Missing or insufficient permissions.
+[2025-09-04T05:39:45.481Z] [INFO] Accessible collections: 4
+[2025-09-04T05:39:45.482Z] [INFO] Total collections with data: 2
+[2025-09-04T05:39:45.483Z] [INFO] Total documents across all collections: 24

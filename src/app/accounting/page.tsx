@@ -10,6 +10,7 @@ import { Timestamp } from 'firebase/firestore';
 import { accountingInventoryIntegration } from '@/services/accountingInventoryIntegration';
 import TransactionForm from '@/components/accounting/TransactionForm';
 import AuthGuard from '@/components/auth/AuthGuard';
+
 import {
   Plus,
   Edit,
@@ -28,7 +29,8 @@ import {
   Receipt,
   Wallet,
   Building2,
-  CreditCard
+  CreditCard,
+  Users
 } from 'lucide-react';
 
 interface TransactionCardProps {
@@ -194,7 +196,8 @@ function AccountingPageContent() {
     { id: 'expenditure', label: 'Expenditure', icon: Receipt },
     { id: 'capital', label: 'Capital & Drawings', icon: Wallet },
     { id: 'bank', label: 'Bank', icon: Building2 },
-    { id: 'loan', label: 'Loan', icon: CreditCard }
+    { id: 'loan', label: 'Loan', icon: CreditCard },
+    { id: 'equity', label: 'Equity', icon: Users }
   ];
 
   // Load transactions on component mount
@@ -205,15 +208,25 @@ function AccountingPageContent() {
   }, [user, userProfile]);
 
   const loadTransactions = async () => {
-    if (!user || !userProfile) return;
+    if (!user || !userProfile) {
+      console.log('DEBUG: loadTransactions called but user or userProfile is missing', { user: !!user, userProfile: !!userProfile });
+      return;
+    }
     
     try {
+      console.log('DEBUG: Starting to load transactions for user:', user.uid);
       setLoading(true);
       // Use user's UID as organization ID for now
       const data = await transactionService.getTransactions(user.uid);
+      console.log('DEBUG: Transactions loaded successfully:', { count: data.length, data });
       setTransactions(data);
     } catch (error) {
-      console.error('Failed to load transactions:', error);
+      console.error('DEBUG: Failed to load transactions:', error);
+      console.error('DEBUG: Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: user.uid
+      });
     } finally {
       setLoading(false);
     }
@@ -228,6 +241,7 @@ function AccountingPageContent() {
       case 'capital': return t.type === 'CAPITAL_DRAWINGS';
       case 'bank': return t.type === 'BANK';
       case 'loan': return t.type === 'LOAN';
+      case 'equity': return t.type === 'EQUITY';
       case 'overview': return true;
       default: return true;
     }
@@ -533,12 +547,13 @@ function AccountingPageContent() {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                {activeTab === 'sales' ? 'Sales Transactions' : 
-                 activeTab === 'purchases' ? 'Purchase Transactions' : 
+                {activeTab === 'sales' ? 'Sales Transactions' :
+                 activeTab === 'purchases' ? 'Purchase Transactions' :
                  activeTab === 'expenditure' ? 'Expense Transactions' :
                  activeTab === 'capital' ? 'Capital and Drawings' :
                  activeTab === 'bank' ? 'Banking Transactions' :
                  activeTab === 'loan' ? 'Loan Transactions' :
+                 activeTab === 'equity' ? 'Equity Transactions' :
                  'Recent Transactions'}
               </h2>
               <button 
@@ -579,6 +594,8 @@ function AccountingPageContent() {
                     <Building2 className="w-8 h-8 text-gray-400" />
                   ) : activeTab === 'loan' ? (
                     <CreditCard className="w-8 h-8 text-gray-400" />
+                  ) : activeTab === 'equity' ? (
+                    <Users className="w-8 h-8 text-gray-400" />
                   ) : (
                     <FileText className="w-8 h-8 text-gray-400" />
                   )}
@@ -590,6 +607,7 @@ function AccountingPageContent() {
                    activeTab === 'capital' ? 'No capital transactions found' :
                    activeTab === 'bank' ? 'No banking transactions found' :
                    activeTab === 'loan' ? 'No loan transactions found' :
+                   activeTab === 'equity' ? 'No equity transactions found' :
                    'No transactions found'}
                 </h3>
                 <p className="text-gray-600 mb-4">
@@ -599,6 +617,7 @@ function AccountingPageContent() {
                    activeTab === 'capital' ? 'Start by recording your first capital transaction.' :
                    activeTab === 'bank' ? 'Start by recording your first banking transaction.' :
                    activeTab === 'loan' ? 'Start by recording your first loan transaction.' :
+                   activeTab === 'equity' ? 'Start by recording your first equity transaction.' :
                    'Start by adding your first transaction.'}
                 </p>
                 <button 
@@ -612,6 +631,7 @@ function AccountingPageContent() {
                    activeTab === 'capital' ? 'Add Capital Transaction' :
                    activeTab === 'bank' ? 'Add Banking Transaction' :
                    activeTab === 'loan' ? 'Add Loan Transaction' :
+                   activeTab === 'equity' ? 'Add Equity Transaction' :
                    'Add Transaction'}
                 </button>
               </div>
@@ -657,6 +677,8 @@ function AccountingPageContent() {
           emiAmount: editingTransaction.emiAmount
         } : undefined}
       />
+      
+
     </DashboardLayout>
   );
 }
