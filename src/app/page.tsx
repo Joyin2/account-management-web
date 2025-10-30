@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
-import Navigation from '@/components/Navigation'
+import Navigation from '../components/Navigation'
 import HeroSection from '@/components/HeroSection'
 import FeatureHighlights from '@/components/FeatureHighlights'
 import HowItWorks from '@/components/HowItWorks'

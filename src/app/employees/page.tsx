@@ -15,7 +15,7 @@ import {
   Attendance,
   SalaryStructure
 } from '@/services/employeeService';
-import { Timestamp } from 'firebase/firestore';
+// Using native Date objects instead of Firebase Timestamp
 import {
   Plus,
   Search,
@@ -119,14 +119,14 @@ export default function EmployeesPage() {
     console.log('Employee page useEffect:', {
       currentUser: !!currentUser,
       userProfile: !!userProfile,
-      organizationId: userProfile?.organizationId
+      organizationId: userProfile?.organization_id
     });
 
     if (currentUser && userProfile) {
-      if (userProfile.organizationId) {
+      if (userProfile.organization_id) {
         loadAllData();
       } else {
-        console.warn('User profile missing organizationId');
+        console.warn('User profile missing organization_id');
         setLoading(false);
         // Show a message to set up organization
       }
@@ -171,14 +171,14 @@ export default function EmployeesPage() {
           timezone: 'Asia/Kolkata',
           dateFormat: 'DD/MM/YYYY'
         },
-        createdBy: currentUser?.uid,
-        createdAt: new Date(),
+        createdBy: currentUser?.id,
+        createdAt: new Date().toISOString(),
         isActive: true
       };
 
       // For now, we'll just update the user profile with a mock organization ID
       // In a real app, you'd create the organization in Firestore first
-      const mockOrgId = `org_${currentUser?.uid}_${Date.now()}`;
+      const mockOrgId = `org_${currentUser?.id}_${Date.now()}`;
 
       // Update user profile with organization ID
       // This is a simplified approach - in production you'd want proper organization creation
@@ -220,19 +220,19 @@ export default function EmployeesPage() {
 
   const setupRealTimeSubscriptions = () => {
     // Check if required data is available
-    if (!userProfile?.organizationId || !currentUser?.uid) {
+    if (!userProfile?.organization_id || !currentUser?.id) {
       console.warn('Missing required data for subscriptions:', {
-        organizationId: userProfile?.organizationId,
-        userId: currentUser?.uid
+        organizationId: userProfile?.organization_id,
+        userId: currentUser?.id
       });
       return Promise.resolve(); // Return a resolved promise for consistency
     }
 
-    console.log('Setting up real-time subscriptions for org:', userProfile.organizationId);
+    console.log('Setting up real-time subscriptions for org:', userProfile.organization_id);
 
     // Set up real-time subscription for employees
     const unsubscribeEmployees = employeeService.subscribeToEmployees(
-      userProfile.organizationId,
+      userProfile.organization_id,
       (employeeData) => {
         setEmployees(employeeData);
       }
@@ -280,10 +280,10 @@ export default function EmployeesPage() {
   };
 
   const loadStats = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
-      const statsData = await employeeService.getEmployeeStats(userProfile.organizationId);
+      const statsData = await employeeService.getEmployeeStats(userProfile.organization_id);
       setStats(statsData);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -291,7 +291,7 @@ export default function EmployeesPage() {
   };
 
   const loadLeaveData = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       console.log('Loading leave data...');
@@ -300,7 +300,7 @@ export default function EmployeesPage() {
       let leaveTypesData: LeaveType[] = [];
       try {
         setIndexBuilding(true);
-        leaveTypesData = await employeeService.getLeaveTypes(userProfile.organizationId);
+        leaveTypesData = await employeeService.getLeaveTypes(userProfile.organization_id);
         console.log('Loaded leave types:', leaveTypesData.length);
         setIndexBuilding(false);
       } catch (leaveTypesError: any) {
@@ -314,7 +314,7 @@ export default function EmployeesPage() {
 
         if (isIndexBuilding) {
           setIndexBuilding(true);
-          console.log('Firebase indexes are building, this may take a few minutes...');
+          console.log('Database indexes are building, this may take a few minutes...');
           // Don't auto-retry to prevent infinite loops
         } else {
           setIndexBuilding(false);
@@ -330,7 +330,7 @@ export default function EmployeesPage() {
 
         // Try to load again after creating defaults
         try {
-          const newLeaveTypes = await employeeService.getLeaveTypes(userProfile.organizationId);
+          const newLeaveTypes = await employeeService.getLeaveTypes(userProfile.organization_id);
           setLeaveTypes(newLeaveTypes);
           console.log('Default leave types created and loaded:', newLeaveTypes.length);
         } catch (retryError) {
@@ -344,7 +344,7 @@ export default function EmployeesPage() {
 
       // Load leave applications with error handling
       try {
-        const leaveApplicationsData = await employeeService.getLeaveApplications(userProfile.organizationId);
+        const leaveApplicationsData = await employeeService.getLeaveApplications(userProfile.organization_id);
         setLeaveApplications(leaveApplicationsData);
         console.log('Loaded leave applications:', leaveApplicationsData.length);
       } catch (applicationsError) {
@@ -397,7 +397,7 @@ export default function EmployeesPage() {
   };
 
   const getFallbackLeaveTypes = (): LeaveType[] => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return [];
+    if (!currentUser?.id || !userProfile?.organization_id) return [];
 
     return [
       {
@@ -411,10 +411,10 @@ export default function EmployeesPage() {
         applicableAfterDays: 90,
         description: 'Annual vacation leave',
         isActive: true,
-        userId: currentUser.uid,
-        organizationId: userProfile.organizationId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        userId: currentUser.id,
+        organizationId: userProfile.organization_id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         id: 'fallback-2',
@@ -427,10 +427,10 @@ export default function EmployeesPage() {
         applicableAfterDays: 0,
         description: 'Medical leave',
         isActive: true,
-        userId: currentUser.uid,
-        organizationId: userProfile.organizationId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        userId: currentUser.id,
+        organizationId: userProfile.organization_id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         id: 'fallback-3',
@@ -443,16 +443,16 @@ export default function EmployeesPage() {
         applicableAfterDays: 180,
         description: 'Maternity leave',
         isActive: true,
-        userId: currentUser.uid,
-        organizationId: userProfile.organizationId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        userId: currentUser.id,
+        organizationId: userProfile.organization_id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
     ];
   };
 
   const initializeDefaultLeaveTypes = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       const defaultLeaveTypes = [
@@ -467,7 +467,7 @@ export default function EmployeesPage() {
           description: 'Annual vacation leave',
           isActive: true,
           userId: currentUser.uid,
-          organizationId: userProfile.organizationId
+          organizationId: userProfile.organization_id
         },
         {
           name: 'Sick Leave',
@@ -479,8 +479,8 @@ export default function EmployeesPage() {
           applicableAfterDays: 0,
           description: 'Medical leave',
           isActive: true,
-          userId: currentUser.uid,
-          organizationId: userProfile.organizationId
+          userId: currentUser.id,
+          organizationId: userProfile.organization_id
         },
         {
           name: 'Maternity Leave',
@@ -492,8 +492,8 @@ export default function EmployeesPage() {
           applicableAfterDays: 180,
           description: 'Maternity leave',
           isActive: true,
-          userId: currentUser.uid,
-          organizationId: userProfile.organizationId
+          userId: currentUser.id,
+          organizationId: userProfile.organization_id
         }
       ];
 
@@ -508,11 +508,11 @@ export default function EmployeesPage() {
   };
 
   const initializeEmployeeLeaveBalances = async (employeeId: string) => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       // Get current leave types
-      const currentLeaveTypes = await employeeService.getLeaveTypes(userProfile.organizationId);
+      const currentLeaveTypes = await employeeService.getLeaveTypes(userProfile.organization_id);
       const currentYear = new Date().getFullYear();
 
       // Create leave balance for each leave type
@@ -527,8 +527,8 @@ export default function EmployeesPage() {
             pending: 0,
             available: leaveType.maxDaysPerYear,
             carriedForward: 0,
-            userId: currentUser.uid,
-            organizationId: userProfile.organizationId
+            userId: currentUser.id,
+            organizationId: userProfile.organization_id
           };
 
           await employeeService.createLeaveBalance(leaveBalance);
@@ -542,7 +542,7 @@ export default function EmployeesPage() {
   };
 
   const quickFixBalances = () => {
-    if (!currentUser?.uid || !userProfile?.organizationId || employees.length === 0) {
+    if (!currentUser?.id || !userProfile?.organization_id || employees.length === 0) {
       alert('Please refresh the page and try again.');
       return;
     }
@@ -565,11 +565,11 @@ export default function EmployeesPage() {
           maxCarryForwardDays: 5,
           encashable: true,
           applicableAfterDays: 90,
-          userId: currentUser.uid,
-          organizationId: userProfile.organizationId,
+          userId: currentUser.id,
+          organizationId: userProfile.organization_id,
           isActive: true,
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
+          createdAt: new Date().toISOString() as any,
+          updatedAt: new Date().toISOString() as any
         },
         {
           id: 'temp-sl',
@@ -581,11 +581,11 @@ export default function EmployeesPage() {
           maxCarryForwardDays: 0,
           encashable: false,
           applicableAfterDays: 0,
-          userId: currentUser.uid,
-          organizationId: userProfile.organizationId,
+          userId: currentUser.id,
+          organizationId: userProfile.organization_id,
           isActive: true,
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
+          createdAt: new Date().toISOString() as any,
+          updatedAt: new Date().toISOString() as any
         }
       ];
 
@@ -599,10 +599,10 @@ export default function EmployeesPage() {
         pending: 0,
         available: leaveType.maxDaysPerYear,
         carriedForward: 0,
-        userId: currentUser.uid,
-        organizationId: userProfile.organizationId,
-        createdAt: new Date() as any,
-        updatedAt: new Date() as any
+        userId: currentUser.id,
+        organizationId: userProfile.organization_id,
+        createdAt: new Date().toISOString() as any,
+        updatedAt: new Date().toISOString() as any
       }));
 
       // Set the state directly
@@ -632,13 +632,13 @@ export default function EmployeesPage() {
 
 
   const initializeAllEmployeeLeaveBalances = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       console.log('Fixing and initializing leave balances for all employees...');
 
       // Get current leave types
-      const currentLeaveTypes = await employeeService.getLeaveTypes(userProfile.organizationId);
+      const currentLeaveTypes = await employeeService.getLeaveTypes(userProfile.organization_id);
       console.log('Found leave types:', currentLeaveTypes.length);
 
       if (currentLeaveTypes.length === 0) {
@@ -646,7 +646,7 @@ export default function EmployeesPage() {
         await initializeDefaultLeaveTypes();
 
         // Try to get leave types again
-        const newLeaveTypes = await employeeService.getLeaveTypes(userProfile.organizationId);
+        const newLeaveTypes = await employeeService.getLeaveTypes(userProfile.organization_id);
         if (newLeaveTypes.length === 0) {
           alert('Failed to create leave types. Please try again.');
           return;
@@ -687,8 +687,8 @@ export default function EmployeesPage() {
                     pending: 0,
                     available: leaveType.maxDaysPerYear,
                     carriedForward: 0,
-                    userId: currentUser.uid,
-                    organizationId: userProfile.organizationId
+                    userId: currentUser.id,
+                    organizationId: userProfile.organization_id
                   };
 
                   console.log(`Creating balance for ${leaveType.name}: ${leaveType.maxDaysPerYear} days`);
@@ -743,13 +743,13 @@ export default function EmployeesPage() {
   };
 
   const loadSalaryData = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       console.log('Loading salary structures...');
 
       // Load salary structures from Firestore
-      const salaryStructuresData = await employeeService.getAllSalaryStructures(userProfile.organizationId);
+      const salaryStructuresData = await employeeService.getAllSalaryStructures(userProfile.organization_id);
       setSalaryStructures(salaryStructuresData);
       console.log('Loaded salary structures:', salaryStructuresData.length);
 
@@ -780,13 +780,13 @@ export default function EmployeesPage() {
   };
 
   const loadPayrollData = async () => {
-    if (!currentUser?.uid || !userProfile?.organizationId) return;
+    if (!currentUser?.id || !userProfile?.organization_id) return;
 
     try {
       console.log('Loading payroll data...');
 
       // Load payrolls from Firestore
-      const payrollsData = await employeeService.getPayrolls(userProfile.organizationId);
+      const payrollsData = await employeeService.getPayrolls(userProfile.organization_id);
       setPayrolls(payrollsData);
       console.log('Loaded payrolls:', payrollsData.length);
 
@@ -853,7 +853,7 @@ export default function EmployeesPage() {
         lastName: employeeData.lastName,
         email: employeeData.email,
         phone: employeeData.phone,
-        dateOfBirth: employeeData.dateOfBirth ? Timestamp.fromDate(new Date(employeeData.dateOfBirth)) : Timestamp.now(),
+        dateOfBirth: employeeData.dateOfBirth ? Timestamp.now() : new Date(),
         gender: employeeData.gender,
         maritalStatus: employeeData.maritalStatus || 'single',
 
@@ -873,8 +873,8 @@ export default function EmployeesPage() {
         employmentType: employeeData.employmentType,
         workLocation: employeeData.workLocation,
         reportingManager: employeeData.reportingManager,
-        dateOfJoining: employeeData.dateOfJoining ? Timestamp.fromDate(new Date(employeeData.dateOfJoining)) : Timestamp.now(),
-        probationEndDate: employeeData.probationEndDate ? Timestamp.fromDate(new Date(employeeData.probationEndDate)) : undefined,
+        dateOfJoining: employeeData.dateOfJoining ? Timestamp.now() : new Date(),
+        probationEndDate: employeeData.probationEndDate ? Timestamp.now() : undefined,
         status: employeeData.status || 'active',
 
         // Salary Information
@@ -995,8 +995,8 @@ export default function EmployeesPage() {
       try {
         await employeeService.deleteEmployee(employee.id!);
         // Refresh the employee list
-        if (user?.organizationId) {
-          const updatedEmployees = await employeeService.getEmployees(user.organizationId);
+        if (userProfile?.organizationId) {
+          const updatedEmployees = await employeeService.getEmployees(userProfile.organizationId);
           setEmployees(updatedEmployees);
         }
       } catch (error) {
@@ -1026,8 +1026,8 @@ export default function EmployeesPage() {
       // Transform data to include proper timestamps and organization info
       const transformedData = {
         ...salaryData,
-        effectiveFrom: salaryData.effectiveFrom ? Timestamp.fromDate(new Date(salaryData.effectiveFrom)) : Timestamp.now(),
-        effectiveTo: salaryData.effectiveTo ? Timestamp.fromDate(new Date(salaryData.effectiveTo)) : undefined,
+        effectiveFrom: salaryData.effectiveFrom ? Timestamp.now() : new Date(),
+        effectiveTo: salaryData.effectiveTo ? Timestamp.now() : undefined,
         userId: currentUser.uid,
         organizationId: userProfile.organizationId
       };
@@ -1060,9 +1060,9 @@ export default function EmployeesPage() {
       const payrollsWithOrgData = payrollData.map(payroll => {
         const transformedPayroll = {
           ...payroll,
-          payPeriodStart: payroll.payPeriodStart ? Timestamp.fromDate(new Date(payroll.payPeriodStart)) : Timestamp.now(),
-          payPeriodEnd: payroll.payPeriodEnd ? Timestamp.fromDate(new Date(payroll.payPeriodEnd)) : Timestamp.now(),
-          payDate: payroll.payDate ? Timestamp.fromDate(new Date(payroll.payDate)) : Timestamp.now(),
+          payPeriodStart: payroll.payPeriodStart ? Timestamp.now() : new Date(),
+          payPeriodEnd: payroll.payPeriodEnd ? Timestamp.now() : new Date(),
+          payDate: payroll.payDate ? Timestamp.now() : new Date(),
           userId: currentUser.uid,
           organizationId: userProfile.organizationId
         };
@@ -1088,9 +1088,9 @@ export default function EmployeesPage() {
 
       const transformedLeaveData = {
         ...leaveData,
-        startDate: leaveData.startDate ? Timestamp.fromDate(new Date(leaveData.startDate)) : Timestamp.now(),
-        endDate: leaveData.endDate ? Timestamp.fromDate(new Date(leaveData.endDate)) : Timestamp.now(),
-        appliedDate: Timestamp.now(),
+        startDate: leaveData.startDate ? Timestamp.now() : new Date(),
+        endDate: leaveData.endDate ? Timestamp.now() : new Date(),
+        appliedDate: new Date(),
         userId: currentUser.uid,
         organizationId: userProfile.organizationId,
         status: 'pending' as const
@@ -1110,7 +1110,6 @@ export default function EmployeesPage() {
 
       // Reload data to reflect changes
       await loadLeaveData();
-      await loadLeaveApplications();
     } catch (error) {
       console.error('Error creating leave application:', error);
       alert('Failed to create leave application. Please try again.');
@@ -1198,14 +1197,14 @@ export default function EmployeesPage() {
         const approvedApplications = leaveApplications.filter(app =>
           app.employeeId === employee.id &&
           app.status === 'approved' &&
-          new Date(app.startDate.toDate ? app.startDate.toDate() : app.startDate).getFullYear() === currentYear
+          new Date(app.startDate).getFullYear() === currentYear
         );
 
         // Get all pending leave applications for this employee
         const pendingApplications = leaveApplications.filter(app =>
           app.employeeId === employee.id &&
           app.status === 'pending' &&
-          new Date(app.startDate.toDate ? app.startDate.toDate() : app.startDate).getFullYear() === currentYear
+          new Date(app.startDate).getFullYear() === currentYear
         );
 
         // Update each balance
@@ -1341,7 +1340,7 @@ export default function EmployeesPage() {
       await employeeService.updateLeaveApplication(applicationId, {
         status: 'approved',
         approvedBy: currentUser.uid,
-        approvedDate: Timestamp.now()
+        approvedDate: new Date().toISOString()
       });
 
       // Update the leave balance
@@ -1351,7 +1350,6 @@ export default function EmployeesPage() {
 
       // Reload data to reflect changes
       await loadLeaveData();
-      await loadLeaveApplications();
     } catch (error) {
       console.error('Error approving leave application:', error);
       alert('Failed to approve leave application. Please try again.');
@@ -1373,8 +1371,6 @@ export default function EmployeesPage() {
       // Update the application status
       await employeeService.updateLeaveApplication(applicationId, {
         status: 'rejected',
-        rejectedBy: currentUser.uid,
-        rejectedDate: Timestamp.now(),
         rejectionReason: reason
       });
 
@@ -1385,7 +1381,6 @@ export default function EmployeesPage() {
 
       // Reload data to reflect changes
       await loadLeaveData();
-      await loadLeaveApplications();
     } catch (error) {
       console.error('Error rejecting leave application:', error);
       alert('Failed to reject leave application. Please try again.');
@@ -1400,8 +1395,8 @@ export default function EmployeesPage() {
 
       const attendanceData: any = {
         employeeId,
-        date: Timestamp.fromDate(new Date()),
-        checkInTime: Timestamp.fromDate(new Date()),
+        date: Timestamp.now(),
+        checkInTime: Timestamp.now(),
         status: 'present' as const,
         isLate: false,
         lateMinutes: 0,
@@ -1447,7 +1442,7 @@ export default function EmployeesPage() {
         const overtimeHours = Math.max(0, totalHours - 8); // Assuming 8-hour workday
 
         const updateData: any = {
-          checkOutTime: Timestamp.fromDate(checkOutTime),
+          checkOutTime: checkOutTime.toISOString(),
           totalHours,
           overtimeHours
         };
@@ -1478,7 +1473,7 @@ export default function EmployeesPage() {
 
       const attendanceData = {
         employeeId,
-        date: Timestamp.fromDate(date),
+        date: date.toISOString(),
         status: status as 'present' | 'absent' | 'half-day' | 'late' | 'on-leave',
         isLate: false,
         lateMinutes: 0,
@@ -1582,7 +1577,7 @@ export default function EmployeesPage() {
                   Database Indexes Building
                 </h3>
                 <div className="mt-1 text-sm text-blue-700">
-                  Firebase is building database indexes for optimal performance. The system will automatically
+                  The database is building indexes for optimal performance. The system will automatically
                   retry every 30 seconds. This process typically takes 2-5 minutes for new deployments.
                 </div>
                 <div className="mt-2 text-xs text-blue-600">
@@ -2005,7 +2000,8 @@ export default function EmployeesPage() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {salaryStructures.map((structure) => {
                           const employee = employees.find(emp => emp.id === structure.employeeId);
-                          const grossSalary = (structure.basicSalary || 0) + (structure.allowances || 0);
+                          const totalAllowances = (structure.hra || 0) + (structure.da || 0) + (structure.conveyanceAllowance || 0) + (structure.medicalAllowance || 0) + (structure.specialAllowance || 0);
+                          const grossSalary = (structure.basicSalary || 0) + totalAllowances;
 
                           return (
                             <tr key={structure.id} className="hover:bg-gray-50">
@@ -2021,10 +2017,10 @@ export default function EmployeesPage() {
                                 ₹{(structure.basicSalary || 0).toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ₹{(structure.allowances || 0).toLocaleString()}
+                                ₹{totalAllowances.toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ₹{(structure.deductions || 0).toLocaleString()}
+                                ₹{(structure.totalDeductions || 0).toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 ₹{grossSalary.toLocaleString()}
@@ -2113,7 +2109,12 @@ export default function EmployeesPage() {
           }}
           onSave={handleCreateEmployee}
           editData={editFormData}
-          managers={employees.filter(emp => emp.position?.toLowerCase().includes('manager'))}
+          employees={employees.map(emp => ({
+            id: emp.id || '',
+            firstName: emp.firstName,
+            lastName: emp.lastName,
+            employeeId: emp.employeeId
+          }))}
         />
       )}
 
@@ -2125,6 +2126,10 @@ export default function EmployeesPage() {
             setSelectedEmployee(null);
           }}
           employee={selectedEmployee}
+          onEdit={() => {
+            handleEditEmployee(selectedEmployee);
+            setShowEmployeeProfile(false);
+          }}
         />
       )}
 

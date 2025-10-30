@@ -65,8 +65,8 @@ export default function FileUpload({
           employeeId,
           undefined,
           (progress: FileUploadProgress) => {
-            setFiles(prev => prev.map(f => 
-              f.id === file.id 
+            setFiles(prev => prev.map(f =>
+              f.id === file.id
                 ? { ...f, progress: progress.progress, status: progress.status, error: progress.error }
                 : f
             ));

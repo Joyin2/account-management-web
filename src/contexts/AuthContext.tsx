@@ -1,58 +1,25 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/types/roles';
 
 // Define the business type enum to match BusinessTypeSelector IDs
 export type BusinessType = 'manufacturer' | 'retailer' | 'restaurant' | 'service' | 'wholesale' | 'construction' | 'ecommerce' | 'general' | 'distributor';
 export type AccountType = 'personal' | 'business' | 'enterprise';
 
-interface UserProfile {
-  uid: string;
+export interface UserProfile {
+  id: string;
   email: string;
-  // Support both old and new formats
-  fullName?: string; // Legacy format
-  firstName?: string; // New format
-  lastName?: string; // New format
+  full_name: string;
   phone: string;
-  // Support both old and new formats
-  businessType?: BusinessType; // Legacy format
-  accountType?: AccountType; // New format
-  // Additional fields from SignupForm
-  companyName?: string;
-  industry?: string;
-  companySize?: string;
-  website?: string;
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  preferences?: {
-    newsletter: boolean;
-  };
-  // Role-based access control
+  business_type: BusinessType;
   role: UserRole;
-  organizationId: string;
-  department?: string;
-  position?: string;
-  managerId?: string;
-  permissions?: string[];
-  isActive: boolean;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
+  organization_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
@@ -63,6 +30,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<User>;
   signUp: (email: string, password: string, fullName: string, phone: string, businessType: BusinessType) => Promise<User>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,101 +49,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
       
-      if (user) {
-        // Fetch user profile from Firestore
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    };
 
-            // Convert Date objects to Timestamp for consistency
-            if (userData.createdAt instanceof Date) {
-              userData.createdAt = Timestamp.fromDate(userData.createdAt);
-            }
-            if (userData.updatedAt instanceof Date) {
-              userData.updatedAt = Timestamp.fromDate(userData.updatedAt);
-            }
+    getInitialSession();
 
-            // Check if user profile has required fields, if not, update it
-            if (!userData.role || !userData.organizationId || userData.isActive === undefined) {
-              console.log('Updating user profile with missing required fields');
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
 
-              const defaultOrgId = userData.organizationId || `org_${user.uid}_${Date.now()}`;
-              const updatedProfile = {
-                ...userData,
-                role: userData.role || 'admin',
-                organizationId: defaultOrgId,
-                isActive: userData.isActive !== undefined ? userData.isActive : true,
-                updatedAt: Timestamp.now()
-              };
-
-              // Update the user profile in Firestore
-              await setDoc(doc(db, 'users', user.uid), updatedProfile);
-
-              // Create organization if it doesn't exist
-              if (!userData.organizationId) {
-                const organizationData = {
-                  id: defaultOrgId,
-                  name: 'General Business',
-                  type: 'business',
-                  industry: 'General',
-                  address: {
-                    street: '',
-                    city: '',
-                    state: '',
-                    zipCode: '',
-                    country: 'India'
-                  },
-                  contactInfo: {
-                    email: user.email || '',
-                    phone: userData.phone || '',
-                    website: ''
-                  },
-                  settings: {
-                    currency: 'INR',
-                    timezone: 'Asia/Kolkata',
-                    dateFormat: 'DD/MM/YYYY'
-                  },
-                  members: [user.uid],
-                  createdBy: user.uid,
-                  createdAt: Timestamp.now(),
-                  updatedAt: Timestamp.now(),
-                  isActive: true
-                };
-
-                await setDoc(doc(db, 'organizations', defaultOrgId), organizationData);
-              }
-
-              setUserProfile(updatedProfile as UserProfile);
-            } else {
-              setUserProfile(userData as UserProfile);
-            }
-          } else {
-            // User exists in Auth but no profile in Firestore
-            console.warn('User authenticated but no profile found in Firestore');
-            setUserProfile(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          setUserProfile(null);
-        }
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        setUserProfile(null);
+      } else if (data) {
+        setUserProfile(data as UserProfile);
+      } else {
+        console.warn('User authenticated but no profile found in database');
+        setUserProfile(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setUserProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      return result.user;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('No user returned from sign in');
+
+      return data.user;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -190,69 +128,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     businessType: BusinessType
   ) => {
     try {
-      const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Update user profile
-      await updateProfile(user, {
-        displayName: fullName
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       });
 
-      // Create user document in Firestore
-      const now = Timestamp.now();
+      if (error) throw error;
+      if (!data.user) throw new Error('No user returned from sign up');
+
+      const user = data.user;
 
       // Create a default organization ID for new users
-      const defaultOrgId = `org_${user.uid}_${Date.now()}`;
+      const defaultOrgId = `org_${user.id}_${Date.now()}`;
 
-      const userProfile: UserProfile = {
-        uid: user.uid,
+      const userProfile: Omit<UserProfile, 'id'> = {
         email: user.email!,
-        fullName,
+        full_name: fullName,
         phone,
-        businessType: businessType, // Store the business type ID
-        role: 'admin', // Default role for new users
-        organizationId: defaultOrgId,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now
+        business_type: businessType,
+        role: 'admin',
+        organization_id: defaultOrgId,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      // Create the organization document
       const organizationData = {
-        id: defaultOrgId,
+        organization_id: defaultOrgId,
         name: 'General Business',
-        type: 'business',
-        industry: 'General',
-        address: {
-          street: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          country: 'India'
-        },
-        contactInfo: {
-          email: user.email || '',
-          phone: phone || '',
-          website: ''
-        },
+        business_type: businessType,
+        owner_id: user.id,
         settings: {
           currency: 'INR',
           timezone: 'Asia/Kolkata',
           dateFormat: 'DD/MM/YYYY'
         },
-        members: [user.uid],
-        createdBy: user.uid,
-        createdAt: now,
-        updatedAt: now,
-        isActive: true
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       // Save both user profile and organization
-      await Promise.all([
-        setDoc(doc(db, 'users', user.uid), userProfile),
-        setDoc(doc(db, 'organizations', defaultOrgId), organizationData)
-      ]);
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{ ...userProfile, id: user.id }]);
 
-      setUserProfile(userProfile);
+      if (profileError) {
+        console.error('Error creating user profile:', profileError);
+        throw profileError;
+      }
+
+      const { error: orgError } = await supabase
+        .from('organizations')
+        .insert([organizationData]);
+
+      if (orgError) {
+        console.error('Error creating organization:', orgError);
+        // Don't throw here as user is already created
+      }
+
+      setUserProfile({ ...userProfile, id: user.id } as UserProfile);
       return user;
     } catch (error) {
       console.error('Sign up error:', error);
@@ -262,10 +196,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       setUserProfile(null);
     } catch (error) {
       console.error('Logout error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Password reset error:', error);
       throw error;
     }
   };
@@ -277,7 +223,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
-    logout
+    logout,
+    resetPassword
   };
 
   return (

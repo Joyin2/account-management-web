@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { getTransactions, createTransaction, updateTransaction, deleteTransaction, type Transaction as ApiTransaction } from '@/lib/api/transactions';
-import { transactionService, type FirestoreTransaction } from '@/lib/firestore/transactions';
+import { Transaction } from '@/types/transaction';
+import { SupabaseService } from '@/services/supabaseService';
+// Using native Date objects instead of Firebase Timestamp
 import { useAuth } from '@/contexts/AuthContext';
-import { Timestamp } from 'firebase/firestore';
 import { accountingInventoryIntegration } from '@/services/accountingInventoryIntegration';
 import TransactionForm from '@/components/accounting/TransactionForm';
+import DoubleEntryAccounting from '@/components/accounting/DoubleEntryAccounting';
 import AuthGuard from '@/components/auth/AuthGuard';
 
 import {
@@ -34,7 +35,7 @@ import {
 } from 'lucide-react';
 
 interface TransactionCardProps {
-  transaction: FirestoreTransaction;
+  transaction: Transaction;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onView: (id: string) => void;
@@ -42,13 +43,13 @@ interface TransactionCardProps {
 
 function TransactionCard({ transaction, onEdit, onDelete, onView }: TransactionCardProps) {
   const isIncome = transaction.type === 'SELL';
-  const transactionDate = transaction.date instanceof Timestamp ? transaction.date.toDate() : new Date(transaction.date);
+  const transactionDate = new Date(transaction.date);
 
   // Format transaction type display with subtype
   const getTransactionTypeDisplay = () => {
-    if (transaction.subType) {
+    if (transaction.sub_type) {
       // Capitalize and format subtype for better display
-      const formattedSubType = transaction.subType
+      const formattedSubType = transaction.sub_type
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
@@ -124,14 +125,14 @@ function TransactionCard({ transaction, onEdit, onDelete, onView }: TransactionC
           <p className="text-gray-500 mb-1">Account</p>
           <p className="font-medium text-gray-900 flex items-center">
             <User className="w-3 h-3 mr-1" />
-            {transaction.vendorName || transaction.buyerName || 'N/A'}
+            {transaction.vendor_name || transaction.buyer_name || 'N/A'}
           </p>
         </div>
         <div>
           <p className="text-gray-500 mb-1">Payment Method</p>
           <p className="font-medium text-gray-900 flex items-center">
             <FileText className="w-3 h-3 mr-1" />
-            {transaction.paymentMethod}
+            {transaction.payment_method}
           </p>
         </div>
       </div>
@@ -184,13 +185,14 @@ function AccountingPageContent() {
   const { user, userProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<FirestoreTransaction | null>(null);
-  const [transactions, setTransactions] = useState<FirestoreTransaction[]>([]);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Tab configuration
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'double-entry', label: 'Double Entry', icon: FileText },
     { id: 'sales', label: 'Sales', icon: TrendingUp },
     { id: 'purchases', label: 'Purchases', icon: ShoppingBag },
     { id: 'expenditure', label: 'Expenditure', icon: Receipt },
@@ -214,10 +216,10 @@ function AccountingPageContent() {
     }
     
     try {
-      console.log('DEBUG: Starting to load transactions for user:', user.uid);
+      console.log('DEBUG: Starting to load transactions for user:', user.id);
       setLoading(true);
-      // Use user's UID as organization ID for now
-      const data = await transactionService.getTransactions(user.uid);
+      // Use user's ID as organization ID for now
+      const data = await SupabaseService.getTransactions(user.id);
       console.log('DEBUG: Transactions loaded successfully:', { count: data.length, data });
       setTransactions(data);
     } catch (error) {
@@ -225,7 +227,7 @@ function AccountingPageContent() {
       console.error('DEBUG: Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        userId: user.uid
+        userId: user.id
       });
     } finally {
       setLoading(false);
@@ -282,8 +284,8 @@ function AccountingPageContent() {
   const handleView = (id: string) => {
     const transaction = currentTransactions.find(t => t.id === id);
     if (transaction) {
-      const date = transaction.date instanceof Timestamp ? transaction.date.toDate().toLocaleDateString() : 'N/A';
-      alert(`Transaction Details:\n\nDescription: ${transaction.description}\nAmount: ₹${transaction.amount.toLocaleString()}\nDate: ${date}\nType: ${transaction.type}\nPayment Method: ${transaction.paymentMethod || 'N/A'}\nRemarks: ${transaction.remarks || 'N/A'}`);
+      const date = transaction.date.toDate().toLocaleDateString();
+      alert(`Transaction Details:\n\nDescription: ${transaction.description}\nAmount: ₹${transaction.amount.toLocaleString()}\nDate: ${date}\nType: ${transaction.type}\nPayment Method: ${transaction.payment_method || 'N/A'}\nRemarks: ${transaction.remarks || 'N/A'}`);
     }
   };
 
@@ -307,52 +309,55 @@ function AccountingPageContent() {
         throw new Error('Please enter a valid positive amount');
       }
       
-      // Create Firestore transaction data with proper validation
+      // Create Supabase transaction data with proper validation
       const baseTransactionData = {
-        date: Timestamp.fromDate(new Date(formData.date)),
+        date: new Date(formData.date).toISOString(),
         type: formData.type as 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN',
         amount: amount, // Use validated number
         description: String(formData.productName || formData.assetName || formData.expenseType || formData.description || 'Transaction'),
+        payment_method: String(formData.paymentMethod || 'Cash'),
         paymentMethod: String(formData.paymentMethod || 'Cash'),
-        gstApplicable: Boolean(formData.gstApplicable),
-        userId: user.uid,
-        organizationId: user.uid, // Using user UID as org ID for now
+        category: String(formData.type || 'General'),
+        transactionType: (formData.type === 'SELL' ? 'income' : 'expense') as 'income' | 'expense' | 'transfer',
+        gst_applicable: Boolean(formData.gstApplicable),
+        user_id: user.id,
+        organization_id: user.id, // Using user ID as org ID for now
       };
 
       // Add optional fields only if they have valid values
-      const transactionData: Omit<FirestoreTransaction, 'id' | 'createdAt' | 'updatedAt'> = {
+      const transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> = {
         ...baseTransactionData,
-        ...(formData.subType && String(formData.subType).trim() ? { subType: String(formData.subType) } : {}),
-        ...(formData.vendorName && String(formData.vendorName).trim() ? { vendorName: String(formData.vendorName) } : {}),
-        ...(formData.buyerName && String(formData.buyerName).trim() ? { buyerName: String(formData.buyerName) } : {}),
+        ...(formData.subType && String(formData.subType).trim() ? { sub_type: String(formData.subType) } : {}),
+        ...(formData.vendorName && String(formData.vendorName).trim() ? { vendor_name: String(formData.vendorName) } : {}),
+        ...(formData.buyerName && String(formData.buyerName).trim() ? { buyer_name: String(formData.buyerName) } : {}),
         ...(formData.gstn && String(formData.gstn).trim() ? { gstn: String(formData.gstn) } : {}),
-        ...(formData.gstType && String(formData.gstType).trim() ? { gstType: formData.gstType as 'Regular' | 'Composite' } : {}),
+        ...(formData.gstType && String(formData.gstType).trim() ? { gst_type: formData.gstType as 'Regular' | 'Composite' } : {}),
         ...(formData.remarks && String(formData.remarks).trim() ? { remarks: String(formData.remarks) } : {}),
-        ...(formData.importExportTax && Number(formData.importExportTax) > 0 ? { importExportTax: Number(formData.importExportTax) } : {}),
+        ...(formData.importExportTax && Number(formData.importExportTax) > 0 ? { import_export_tax: Number(formData.importExportTax) } : {}),
         // Type-specific fields
-        ...(formData.productName && String(formData.productName).trim() ? { productName: String(formData.productName) } : {}),
+        ...(formData.productName && String(formData.productName).trim() ? { product_name: String(formData.productName) } : {}),
         ...(formData.quantity && Number(formData.quantity) > 0 ? { quantity: Number(formData.quantity) } : {}),
         ...(formData.price && Number(formData.price) > 0 ? { price: Number(formData.price) } : {}),
-        ...(formData.assetName && String(formData.assetName).trim() ? { assetName: String(formData.assetName) } : {}),
-        ...(formData.expenseType && String(formData.expenseType).trim() ? { expenseType: String(formData.expenseType) } : {}),
-        ...(formData.paidTo && String(formData.paidTo).trim() ? { paidTo: String(formData.paidTo) } : {}),
-        ...(formData.billUrl && String(formData.billUrl).trim() ? { billUrl: String(formData.billUrl) } : {}),
-        ...(formData.partnerOwner && String(formData.partnerOwner).trim() ? { partnerOwner: String(formData.partnerOwner) } : {}),
-        ...(formData.bankAccount && String(formData.bankAccount).trim() ? { bankAccount: String(formData.bankAccount) } : {}),
-        ...(formData.transactionType && String(formData.transactionType).trim() ? { transactionType: String(formData.transactionType) } : {}),
-        ...(formData.loanProvider && String(formData.loanProvider).trim() ? { loanProvider: String(formData.loanProvider) } : {}),
-        ...(formData.interestRate && Number(formData.interestRate) > 0 ? { interestRate: Number(formData.interestRate) } : {}),
-        ...(formData.emiAmount && Number(formData.emiAmount) > 0 ? { emiAmount: Number(formData.emiAmount) } : {}),
+        ...(formData.assetName && String(formData.assetName).trim() ? { asset_name: String(formData.assetName) } : {}),
+        ...(formData.expenseType && String(formData.expenseType).trim() ? { expense_type: String(formData.expenseType) } : {}),
+        ...(formData.paidTo && String(formData.paidTo).trim() ? { paid_to: String(formData.paidTo) } : {}),
+        ...(formData.billUrl && String(formData.billUrl).trim() ? { bill_url: String(formData.billUrl) } : {}),
+        ...(formData.partnerOwner && String(formData.partnerOwner).trim() ? { partner_owner: String(formData.partnerOwner) } : {}),
+        ...(formData.bankAccount && String(formData.bankAccount).trim() ? { bank_account: String(formData.bankAccount) } : {}),
+        ...(formData.transactionType && String(formData.transactionType).trim() ? { transaction_type: String(formData.transactionType) } : {}),
+        ...(formData.loanProvider && String(formData.loanProvider).trim() ? { loan_provider: String(formData.loanProvider) } : {}),
+        ...(formData.interestRate && Number(formData.interestRate) > 0 ? { interest_rate: Number(formData.interestRate) } : {}),
+        ...(formData.emiAmount && Number(formData.emiAmount) > 0 ? { emi_amount: Number(formData.emiAmount) } : {}),
       };
       
       // Add gstType only if GST is applicable and gstType is provided
       if (formData.gstApplicable && formData.gstType) {
-        transactionData.gstType = formData.gstType as 'Regular' | 'Composite';
+        transactionData.gst_type = formData.gstType as 'Regular' | 'Composite';
       }
       
-      // Add interestRate for LOAN transactions if not provided
+      // Add interest_rate for LOAN transactions if not provided
       if (transactionData.type === 'LOAN' && !formData.interestRate) {
-        transactionData.interestRate = 0;
+        transactionData.interest_rate = 0;
       }
       
 
@@ -366,21 +371,11 @@ function AccountingPageContent() {
         // Add new transaction
         const transactionId = await transactionService.createTransaction(transactionData);
         
+        // TODO: Update inventory integration for Supabase
         // If this is a "Buy - Inventory" transaction, also create/update inventory
-        if (transactionData.type === 'BUY' && transactionData.subType === 'inventory') {
-          try {
-            // Create complete FirestoreTransaction object with required fields
-            const completeTransaction: FirestoreTransaction = {
-              ...transactionData,
-              id: transactionId,
-              createdAt: Timestamp.now(),
-              updatedAt: Timestamp.now()
-            };
-            await accountingInventoryIntegration.createInventoryFromAccountingTransaction(completeTransaction, user.uid);
-          } catch (inventoryError) {
-            console.error('Failed to update inventory:', inventoryError);
-            // Don't fail the transaction, just log the error
-          }
+        if (transactionData.type === 'BUY' && transactionData.sub_type === 'inventory') {
+          console.log('Inventory integration temporarily disabled during Supabase migration');
+          // TODO: Implement Supabase-compatible inventory integration
         }
         
         // Reload transactions to get new data
@@ -542,7 +537,16 @@ function AccountingPageContent() {
           />
         </div>
 
+        {/* Double Entry Accounting System */}
+        {activeTab === 'double-entry' && (
+          <DoubleEntryAccounting
+            organizationId={userProfile?.organization_id || user?.id || ''}
+            userId={user?.id || ''}
+          />
+        )}
+
         {/* Transactions List */}
+        {activeTab !== 'double-entry' && (
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -638,10 +642,10 @@ function AccountingPageContent() {
             )}
           </div>
         </div>
-      </div>
+        )}
 
-      {/* Transaction Form Modal */}
-      <TransactionForm
+        {/* Transaction Form Modal */}
+        <TransactionForm
         isOpen={isFormOpen}
         onClose={() => {
           setIsFormOpen(false);
@@ -649,35 +653,35 @@ function AccountingPageContent() {
         }}
         onSubmit={handleSubmitTransaction}
         editData={editingTransaction ? {
-          type: editingTransaction.type,
-          date: editingTransaction.date instanceof Timestamp ? editingTransaction.date.toDate().toISOString().split('T')[0] : editingTransaction.date,
+          type: editingTransaction.type as 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN' | 'EQUITY',
+          date: editingTransaction.date.toDate().toISOString().split('T')[0],
           amount: editingTransaction.amount,
           description: editingTransaction.description,
-          // Map Firestore fields to form fields
-          vendorName: editingTransaction.vendorName,
-          buyerName: editingTransaction.buyerName,
-          paymentMethod: editingTransaction.paymentMethod,
-          gstApplicable: editingTransaction.gstApplicable,
+          // Map Supabase fields to form fields
+          vendorName: editingTransaction.vendor_name,
+          buyerName: editingTransaction.buyer_name,
+          paymentMethod: editingTransaction.payment_method,
+          gstApplicable: editingTransaction.gst_applicable,
           gstn: editingTransaction.gstn,
-          gstType: editingTransaction.gstType,
+          gstType: editingTransaction.gst_type,
           remarks: editingTransaction.remarks,
-          subType: editingTransaction.subType,
-          productName: editingTransaction.productName,
+          subType: editingTransaction.sub_type,
+          productName: editingTransaction.product_name,
           quantity: editingTransaction.quantity,
           price: editingTransaction.price,
-          assetName: editingTransaction.assetName,
-          expenseType: editingTransaction.expenseType,
-          paidTo: editingTransaction.paidTo,
-          billUrl: editingTransaction.billUrl,
-          partnerOwner: editingTransaction.partnerOwner,
-          bankAccount: editingTransaction.bankAccount,
-          transactionType: editingTransaction.transactionType,
-          loanProvider: editingTransaction.loanProvider,
-          interestRate: editingTransaction.interestRate,
-          emiAmount: editingTransaction.emiAmount
+          assetName: editingTransaction.asset_name,
+          expenseType: editingTransaction.expense_type,
+          paidTo: editingTransaction.paid_to,
+          billUrl: editingTransaction.bill_url,
+          partnerOwner: editingTransaction.partner_owner,
+          bankAccount: editingTransaction.bank_account,
+          transactionType: editingTransaction.transaction_type,
+          loanProvider: editingTransaction.loan_provider,
+          interestRate: editingTransaction.interest_rate,
+          emiAmount: editingTransaction.emi_amount
         } : undefined}
       />
-      
+      </div>
 
     </DashboardLayout>
   );

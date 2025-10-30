@@ -8,9 +8,7 @@ import {
   Star, Users, TrendingUp, Award
 } from 'lucide-react';
 import Link from 'next/link';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 interface FormData {
@@ -195,75 +193,42 @@ export default function SignupForm() {
   };
 
   const router = useRouter();
+  const { signUp } = useAuth();
 
   const handleSubmit = async () => {
     if (!validateStep(5)) return;
 
     setIsLoading(true);
     try {
-      // Create user with Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      // Use AuthContext signUp method which handles Supabase
+      await signUp(
         formData.email,
-        formData.password
+        formData.password,
+        `${formData.firstName} ${formData.lastName}`,
+        formData.phone,
+        formData.accountType === 'personal' ? 'general' :
+        formData.accountType === 'business' ? 'general' : 'general'
       );
-      
-      const user = userCredential.user;
-      
-      // Update user profile
-      await updateProfile(user, {
-        displayName: `${formData.firstName} ${formData.lastName}`
-      });
-      
-      // Create user document in Firestore
-      const userData = {
-        uid: user.uid,
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        accountType: formData.accountType,
-        ...(formData.accountType !== 'personal' && {
-          companyName: formData.companyName,
-          industry: formData.industry,
-          companySize: formData.companySize,
-          website: formData.website
-        }),
-        address: {
-          street: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode,
-          country: formData.country
-        },
-        preferences: {
-          newsletter: formData.newsletter
-        },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      await setDoc(doc(db, 'users', user.uid), userData);
-      
+
       setIsSuccess(true);
-      
+
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);
-      
+
     } catch (error: any) {
       console.error('Registration error:', error);
       let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.code === 'auth/email-already-in-use') {
+
+      if (error.message?.includes('email')) {
         errorMessage = 'An account with this email already exists.';
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error.message?.includes('password')) {
         errorMessage = 'Password should be at least 6 characters.';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error.message?.includes('invalid')) {
         errorMessage = 'Please enter a valid email address.';
       }
-      
+
       setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);

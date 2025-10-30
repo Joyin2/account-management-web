@@ -9,7 +9,8 @@ import Footer from '@/components/Footer'
 import HeroSection from '@/components/partner/HeroSection'
 import PartnershipBenefits from '@/components/partner/PartnershipBenefits'
 import PartnerTypes from '@/components/partner/PartnerTypes'
-import PartnerProgram from '@/components/partner/PartnerProgram'
+// Temporarily comment out until PartnerProgram component is created
+// import PartnerProgram from '@/components/partner/PartnerProgram'
 import SuccessStories from '@/components/partner/SuccessStories'
 import PartnerResources from '@/components/partner/PartnerResources'
 import ContactForm from '@/components/partner/ContactForm'
@@ -30,7 +31,7 @@ export default function PartnerPage() {
       <HeroSection />
       <PartnershipBenefits />
       <PartnerTypes />
-      <PartnerProgram />
+      {/* Temporarily removed until PartnerProgram component is implemented */}
       <SuccessStories />
       <PartnerResources />
       <ContactForm />

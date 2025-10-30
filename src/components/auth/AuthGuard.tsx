@@ -37,8 +37,8 @@ export default function AuthGuard({
       
       if (requireCompleteProfile && userProfile) {
         // Check if profile is complete (has required fields)
-        const hasBasicInfo = userProfile.firstName || userProfile.fullName;
-        const hasAccountType = userProfile.accountType || userProfile.businessType;
+        const hasBasicInfo = userProfile.fullName;
+        const hasAccountType = userProfile.businessType;
         
         if (!hasBasicInfo || !hasAccountType) {
           router.push('/signup');
@@ -72,8 +72,8 @@ export default function AuthGuard({
   
   // Don't render if complete profile is required but incomplete
   if (requireCompleteProfile && userProfile) {
-    const hasBasicInfo = userProfile.firstName || userProfile.fullName;
-    const hasAccountType = userProfile.accountType || userProfile.businessType;
+    const hasBasicInfo = userProfile.fullName;
+    const hasAccountType = userProfile.businessType;
     
     if (!hasBasicInfo || !hasAccountType) {
       return null;

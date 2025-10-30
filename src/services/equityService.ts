@@ -1,17 +1,4 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc,
-  query, 
-  where, 
-  orderBy, 
-  Timestamp 
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 
 // Partner/Owner Interface
 export interface Partner {
@@ -20,23 +7,23 @@ export interface Partner {
   email?: string;
   phone?: string;
   address?: string;
-  partnerType: 'OWNER' | 'PARTNER' | 'INVESTOR' | 'SHAREHOLDER';
-  joinDate: Timestamp;
-  isActive: boolean;
-  equityPercentage: number;
-  initialCapital: number;
-  currentCapitalBalance: number;
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  partner_type: 'OWNER' | 'PARTNER' | 'INVESTOR' | 'SHAREHOLDER';
+  join_date: string;
+  is_active: boolean;
+  equity_percentage: number;
+  initial_capital: number;
+  current_capital_balance: number;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
   // Additional fields
-  panNumber?: string;
-  aadharNumber?: string;
-  bankDetails?: {
-    accountNumber: string;
-    bankName: string;
-    ifscCode: string;
+  pan_number?: string;
+  aadhar_number?: string;
+  bank_details?: {
+    account_number: string;
+    bank_name: string;
+    ifsc_code: string;
   };
   notes?: string;
 }
@@ -44,443 +31,615 @@ export interface Partner {
 // Equity Transaction Interface
 export interface EquityTransaction {
   id?: string;
-  partnerId: string;
-  transactionType: 'CAPITAL_CONTRIBUTION' | 'CAPITAL_WITHDRAWAL' | 'PROFIT_DISTRIBUTION' | 'LOSS_ALLOCATION' | 'EQUITY_ADJUSTMENT';
+  partner_id: string;
+  transaction_type: 'CAPITAL_CONTRIBUTION' | 'CAPITAL_WITHDRAWAL' | 'PROFIT_DISTRIBUTION' | 'LOSS_ALLOCATION' | 'EQUITY_ADJUSTMENT';
   amount: number;
-  description: string;
-  date: Timestamp;
-  reference?: string;
-  approvedBy?: string;
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  // Additional fields
-  documentReference?: string;
+  transaction_date: string;
+  description?: string;
+  reference_number?: string;
+  payment_method?: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
   notes?: string;
-  isApproved: boolean;
-  approvalDate?: Timestamp;
 }
 
 // Capital Account Interface
 export interface CapitalAccount {
   id?: string;
-  partnerId: string;
-  openingBalance: number;
-  currentBalance: number;
-  totalContributions: number;
-  totalWithdrawals: number;
-  totalProfitShare: number;
-  totalLossShare: number;
-  lastTransactionDate: Timestamp;
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  partner_id: string;
+  opening_balance: number;
+  contributions: number;
+  withdrawals: number;
+  profit_share: number;
+  loss_share: number;
+  closing_balance: number;
+  period_start: string;
+  period_end: string;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// Profit/Loss Allocation Interface
-export interface ProfitLossAllocation {
+// Profit Distribution Interface
+export interface ProfitDistribution {
   id?: string;
-  period: {
-    from: Timestamp;
-    to: Timestamp;
-  };
-  totalProfit: number;
-  totalLoss: number;
-  allocations: {
-    partnerId: string;
-    partnerName: string;
-    equityPercentage: number;
-    profitShare: number;
-    lossShare: number;
-  }[];
-  allocationDate: Timestamp;
-  isFinalized: boolean;
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  period_start: string;
+  period_end: string;
+  total_profit: number;
+  total_loss: number;
+  distribution_date: string;
+  status: 'DRAFT' | 'APPROVED' | 'DISTRIBUTED';
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  partner_distributions: PartnerDistribution[];
 }
 
-const PARTNERS_COLLECTION = 'partners';
-const EQUITY_TRANSACTIONS_COLLECTION = 'equityTransactions';
-const CAPITAL_ACCOUNTS_COLLECTION = 'capitalAccounts';
-const PROFIT_LOSS_ALLOCATIONS_COLLECTION = 'profitLossAllocations';
+// Partner Distribution Interface
+export interface PartnerDistribution {
+  id?: string;
+  distribution_id: string;
+  partner_id: string;
+  equity_percentage: number;
+  profit_share: number;
+  loss_share: number;
+  net_amount: number;
+  payment_status: 'PENDING' | 'PAID' | 'CANCELLED';
+  payment_date?: string;
+  payment_method?: string;
+  reference_number?: string;
+  notes?: string;
+}
 
-export const equityService = {
-  // Partner Management
-  async createPartner(partnerData: Omit<Partner, 'id' | 'createdAt' | 'updatedAt' | 'currentCapitalBalance'>): Promise<string> {
-    try {
-      const now = Timestamp.now();
-      const partner: Omit<Partner, 'id'> = {
-        ...partnerData,
-        currentCapitalBalance: partnerData.initialCapital,
-        createdAt: now,
-        updatedAt: now
-      };
-      
-      const docRef = await addDoc(collection(db, PARTNERS_COLLECTION), partner);
-      
-      // Create initial capital account
-      await this.createCapitalAccount(docRef.id, partnerData.initialCapital, partnerData.userId, partnerData.organizationId);
-      
-      return docRef.id;
-    } catch (error) {
-      console.error('Error creating partner:', error);
-      throw new Error('Failed to create partner');
-    }
-  },
+// Form Data Interfaces
+export interface PartnerFormData {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  partner_type: 'OWNER' | 'PARTNER' | 'INVESTOR' | 'SHAREHOLDER';
+  join_date: string;
+  equity_percentage: number;
+  initial_capital: number;
+  pan_number?: string;
+  aadhar_number?: string;
+  bank_details?: {
+    account_number: string;
+    bank_name: string;
+    ifsc_code: string;
+  };
+  notes?: string;
+}
 
-  async updatePartner(partnerId: string, updates: Partial<Partner>): Promise<void> {
-    try {
-      const partnerRef = doc(db, PARTNERS_COLLECTION, partnerId);
-      await updateDoc(partnerRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
-    } catch (error) {
-      console.error('Error updating partner:', error);
-      throw new Error('Failed to update partner');
-    }
-  },
+export interface EquityTransactionFormData {
+  partner_id: string;
+  transaction_type: 'CAPITAL_CONTRIBUTION' | 'CAPITAL_WITHDRAWAL' | 'PROFIT_DISTRIBUTION' | 'LOSS_ALLOCATION' | 'EQUITY_ADJUSTMENT';
+  amount: number;
+  transaction_date: string;
+  description?: string;
+  reference_number?: string;
+  payment_method?: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER';
+  notes?: string;
+}
 
-  async deletePartner(partnerId: string): Promise<void> {
-    try {
-      const partnerRef = doc(db, PARTNERS_COLLECTION, partnerId);
-      await deleteDoc(partnerRef);
-      
-      // Delete associated capital account
-      const capitalAccountQuery = query(
-        collection(db, CAPITAL_ACCOUNTS_COLLECTION),
-        where('partnerId', '==', partnerId)
-      );
-      const capitalAccountSnapshot = await getDocs(capitalAccountQuery);
-      
-      const deletePromises = capitalAccountSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
-    } catch (error) {
-      console.error('Error deleting partner:', error);
-      throw new Error('Failed to delete partner');
-    }
-  },
+// Summary Interfaces
+export interface EquitySummary {
+  total_partners: number;
+  active_partners: number;
+  total_capital: number;
+  total_contributions: number;
+  total_withdrawals: number;
+  current_equity_value: number;
+}
 
-  async getPartners(userId: string): Promise<Partner[]> {
-    try {
-      const q = query(
-        collection(db, PARTNERS_COLLECTION),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Partner));
-    } catch (error) {
-      console.error('Error fetching partners:', error);
-      throw new Error('Failed to fetch partners');
-    }
-  },
+export interface PartnerSummary {
+  partner: Partner;
+  total_contributions: number;
+  total_withdrawals: number;
+  current_balance: number;
+  profit_distributions: number;
+  loss_allocations: number;
+  recent_transactions: EquityTransaction[];
+}
 
-  async getPartner(partnerId: string): Promise<Partner | null> {
-    try {
-      const partnerRef = doc(db, PARTNERS_COLLECTION, partnerId);
-      const partnerSnap = await getDoc(partnerRef);
-      
-      if (partnerSnap.exists()) {
-        return {
-          id: partnerSnap.id,
-          ...partnerSnap.data()
-        } as Partner;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error fetching partner:', error);
-      throw new Error('Failed to fetch partner');
-    }
-  },
+// Create a new partner
+export const createPartner = async (partnerData: PartnerFormData, userId: string, organizationId: string): Promise<Partner> => {
+  try {
+    const now = new Date().toISOString();
+    
+    const newPartner = {
+      ...partnerData,
+      is_active: true,
+      current_capital_balance: partnerData.initial_capital,
+      user_id: userId,
+      organization_id: organizationId,
+      created_at: now,
+      updated_at: now
+    };
 
-  // Equity Transaction Management
-  async createEquityTransaction(transactionData: Omit<EquityTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    try {
-      const now = Timestamp.now();
-      const transaction: Omit<EquityTransaction, 'id'> = {
-        ...transactionData,
-        createdAt: now,
-        updatedAt: now
-      };
-      
-      const docRef = await addDoc(collection(db, EQUITY_TRANSACTIONS_COLLECTION), transaction);
-      
-      // Update partner's capital balance
-      await this.updatePartnerCapitalBalance(transactionData.partnerId, transactionData.amount, transactionData.transactionType);
-      
-      return docRef.id;
-    } catch (error) {
-      console.error('Error creating equity transaction:', error);
-      throw new Error('Failed to create equity transaction');
-    }
-  },
+    const { data, error } = await supabase
+      .from('partners')
+      .insert(newPartner)
+      .select()
+      .single();
 
-  async getEquityTransactions(partnerId?: string, userId?: string): Promise<EquityTransaction[]> {
-    try {
-      let q = query(collection(db, EQUITY_TRANSACTIONS_COLLECTION));
-      
-      if (partnerId) {
-        q = query(q, where('partnerId', '==', partnerId));
-      }
-      
-      if (userId) {
-        q = query(q, where('userId', '==', userId));
-      }
-      
-      q = query(q, orderBy('date', 'desc'));
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as EquityTransaction));
-    } catch (error) {
-      console.error('Error fetching equity transactions:', error);
-      throw new Error('Failed to fetch equity transactions');
-    }
-  },
+    if (error) throw error;
 
-  // Capital Account Management
-  async createCapitalAccount(partnerId: string, initialBalance: number, userId: string, organizationId: string): Promise<string> {
-    try {
-      const now = Timestamp.now();
-      const capitalAccount: Omit<CapitalAccount, 'id'> = {
-        partnerId,
-        openingBalance: initialBalance,
-        currentBalance: initialBalance,
-        totalContributions: initialBalance,
-        totalWithdrawals: 0,
-        totalProfitShare: 0,
-        totalLossShare: 0,
-        lastTransactionDate: now,
-        userId,
-        organizationId,
-        createdAt: now,
-        updatedAt: now
-      };
-      
-      const docRef = await addDoc(collection(db, CAPITAL_ACCOUNTS_COLLECTION), capitalAccount);
-      return docRef.id;
-    } catch (error) {
-      console.error('Error creating capital account:', error);
-      throw new Error('Failed to create capital account');
+    // Create initial capital contribution transaction
+    if (partnerData.initial_capital > 0) {
+      await createEquityTransaction({
+        partner_id: data.id,
+        transaction_type: 'CAPITAL_CONTRIBUTION',
+        amount: partnerData.initial_capital,
+        transaction_date: partnerData.join_date,
+        description: 'Initial capital contribution',
+        payment_method: 'BANK_TRANSFER'
+      }, userId, organizationId);
     }
-  },
 
-  async getCapitalAccount(partnerId: string): Promise<CapitalAccount | null> {
-    try {
-      const q = query(
-        collection(db, CAPITAL_ACCOUNTS_COLLECTION),
-        where('partnerId', '==', partnerId)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        return {
-          id: doc.id,
-          ...doc.data()
-        } as CapitalAccount;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error fetching capital account:', error);
-      throw new Error('Failed to fetch capital account');
-    }
-  },
-
-  async updatePartnerCapitalBalance(partnerId: string, amount: number, transactionType: string): Promise<void> {
-    try {
-      const partner = await this.getPartner(partnerId);
-      const capitalAccount = await this.getCapitalAccount(partnerId);
-      
-      if (!partner || !capitalAccount) {
-        throw new Error('Partner or capital account not found');
-      }
-      
-      let newBalance = partner.currentCapitalBalance;
-      let updates: Partial<CapitalAccount> = {
-        lastTransactionDate: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
-      
-      switch (transactionType) {
-        case 'CAPITAL_CONTRIBUTION':
-          newBalance += amount;
-          updates.totalContributions = capitalAccount.totalContributions + amount;
-          break;
-        case 'CAPITAL_WITHDRAWAL':
-          newBalance -= amount;
-          updates.totalWithdrawals = capitalAccount.totalWithdrawals + amount;
-          break;
-        case 'PROFIT_DISTRIBUTION':
-          newBalance += amount;
-          updates.totalProfitShare = capitalAccount.totalProfitShare + amount;
-          break;
-        case 'LOSS_ALLOCATION':
-          newBalance -= amount;
-          updates.totalLossShare = capitalAccount.totalLossShare + amount;
-          break;
-      }
-      
-      updates.currentBalance = newBalance;
-      
-      // Update partner balance
-      await this.updatePartner(partnerId, { currentCapitalBalance: newBalance });
-      
-      // Update capital account
-      const capitalAccountRef = doc(db, CAPITAL_ACCOUNTS_COLLECTION, capitalAccount.id!);
-      await updateDoc(capitalAccountRef, updates);
-    } catch (error) {
-      console.error('Error updating partner capital balance:', error);
-      throw new Error('Failed to update partner capital balance');
-    }
-  },
-
-  // Profit/Loss Allocation
-  async allocateProfitLoss(
-    period: { from: Timestamp; to: Timestamp },
-    totalProfit: number,
-    totalLoss: number,
-    userId: string,
-    organizationId: string
-  ): Promise<string> {
-    try {
-      const partners = await this.getPartners(userId);
-      const activePartners = partners.filter(p => p.isActive);
-      
-      const allocations = activePartners.map(partner => {
-        const profitShare = (totalProfit * partner.equityPercentage) / 100;
-        const lossShare = (totalLoss * partner.equityPercentage) / 100;
-        
-        return {
-          partnerId: partner.id!,
-          partnerName: partner.name,
-          equityPercentage: partner.equityPercentage,
-          profitShare,
-          lossShare
-        };
-      });
-      
-      const allocation: Omit<ProfitLossAllocation, 'id'> = {
-        period,
-        totalProfit,
-        totalLoss,
-        allocations,
-        allocationDate: Timestamp.now(),
-        isFinalized: false,
-        userId,
-        organizationId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
-      
-      const docRef = await addDoc(collection(db, PROFIT_LOSS_ALLOCATIONS_COLLECTION), allocation);
-      return docRef.id;
-    } catch (error) {
-      console.error('Error allocating profit/loss:', error);
-      throw new Error('Failed to allocate profit/loss');
-    }
-  },
-
-  async finalizeAllocation(allocationId: string): Promise<void> {
-    try {
-      const allocationRef = doc(db, PROFIT_LOSS_ALLOCATIONS_COLLECTION, allocationId);
-      const allocationSnap = await getDoc(allocationRef);
-      
-      if (!allocationSnap.exists()) {
-        throw new Error('Allocation not found');
-      }
-      
-      const allocation = allocationSnap.data() as ProfitLossAllocation;
-      
-      // Create equity transactions for each partner
-      const transactionPromises = allocation.allocations.map(async (alloc) => {
-        if (alloc.profitShare > 0) {
-          await this.createEquityTransaction({
-            partnerId: alloc.partnerId,
-            transactionType: 'PROFIT_DISTRIBUTION',
-            amount: alloc.profitShare,
-            description: `Profit distribution for period ${allocation.period.from.toDate().toDateString()} to ${allocation.period.to.toDate().toDateString()}`,
-            date: allocation.allocationDate,
-            isApproved: true,
-            approvalDate: Timestamp.now(),
-            userId: allocation.userId,
-            organizationId: allocation.organizationId
-          });
-        }
-        
-        if (alloc.lossShare > 0) {
-          await this.createEquityTransaction({
-            partnerId: alloc.partnerId,
-            transactionType: 'LOSS_ALLOCATION',
-            amount: alloc.lossShare,
-            description: `Loss allocation for period ${allocation.period.from.toDate().toDateString()} to ${allocation.period.to.toDate().toDateString()}`,
-            date: allocation.allocationDate,
-            isApproved: true,
-            approvalDate: Timestamp.now(),
-            userId: allocation.userId,
-            organizationId: allocation.organizationId
-          });
-        }
-      });
-      
-      await Promise.all(transactionPromises);
-      
-      // Mark allocation as finalized
-      await updateDoc(allocationRef, {
-        isFinalized: true,
-        updatedAt: Timestamp.now()
-      });
-    } catch (error) {
-      console.error('Error finalizing allocation:', error);
-      throw new Error('Failed to finalize allocation');
-    }
-  },
-
-  // Analytics
-  async getEquitySummary(userId: string): Promise<{
-    totalPartners: number;
-    totalCapital: number;
-    totalEquityPercentage: number;
-    totalProfitDistributed: number;
-    totalLossAllocated: number;
-  }> {
-    try {
-      const partners = await this.getPartners(userId);
-      const activePartners = partners.filter(p => p.isActive);
-      
-      const totalPartners = activePartners.length;
-      const totalCapital = activePartners.reduce((sum, p) => sum + p.currentCapitalBalance, 0);
-      const totalEquityPercentage = activePartners.reduce((sum, p) => sum + p.equityPercentage, 0);
-      
-      const transactions = await this.getEquityTransactions(undefined, userId);
-      const totalProfitDistributed = transactions
-        .filter(t => t.transactionType === 'PROFIT_DISTRIBUTION')
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalLossAllocated = transactions
-        .filter(t => t.transactionType === 'LOSS_ALLOCATION')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      return {
-        totalPartners,
-        totalCapital,
-        totalEquityPercentage,
-        totalProfitDistributed,
-        totalLossAllocated
-      };
-    } catch (error) {
-      console.error('Error calculating equity summary:', error);
-      throw new Error('Failed to calculate equity summary');
-    }
+    return data;
+  } catch (error) {
+    console.error('Error creating partner:', error);
+    throw error;
   }
+};
+
+// Update an existing partner
+export const updatePartner = async (partnerId: string, partnerData: Partial<PartnerFormData>): Promise<void> => {
+  try {
+    const updateData = {
+      ...partnerData,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('partners')
+      .update(updateData)
+      .eq('id', partnerId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating partner:', error);
+    throw error;
+  }
+};
+
+// Delete a partner
+export const deletePartner = async (partnerId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('partners')
+      .delete()
+      .eq('id', partnerId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting partner:', error);
+    throw error;
+  }
+};
+
+// Get a single partner by ID
+export const getPartner = async (partnerId: string): Promise<Partner | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('partners')
+      .select('*')
+      .eq('id', partnerId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error('Error getting partner:', error);
+    throw error;
+  }
+};
+
+// Get all partners for a user
+export const getPartners = async (userId: string, organizationId?: string): Promise<Partner[]> => {
+  try {
+    let query = supabase
+      .from('partners')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting partners:', error);
+    throw error;
+  }
+};
+
+// Get active partners
+export const getActivePartners = async (userId: string, organizationId?: string): Promise<Partner[]> => {
+  try {
+    let query = supabase
+      .from('partners')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('name');
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting active partners:', error);
+    throw error;
+  }
+};
+
+// Create an equity transaction
+export const createEquityTransaction = async (
+  transactionData: EquityTransactionFormData, 
+  userId: string, 
+  organizationId: string
+): Promise<EquityTransaction> => {
+  try {
+    const { data: result, error } = await supabase.rpc('create_equity_transaction', {
+      p_partner_id: transactionData.partner_id,
+      p_transaction_type: transactionData.transaction_type,
+      p_amount: transactionData.amount,
+      p_transaction_date: transactionData.transaction_date,
+      p_description: transactionData.description,
+      p_reference_number: transactionData.reference_number,
+      p_payment_method: transactionData.payment_method,
+      p_notes: transactionData.notes,
+      p_user_id: userId,
+      p_organization_id: organizationId
+    });
+
+    if (error) throw error;
+    return result;
+  } catch (error) {
+    console.error('Error creating equity transaction:', error);
+    throw error;
+  }
+};
+
+// Get equity transactions for a partner
+export const getPartnerTransactions = async (partnerId: string): Promise<EquityTransaction[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('equity_transactions')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .order('transaction_date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting partner transactions:', error);
+    throw error;
+  }
+};
+
+// Get all equity transactions for a user
+export const getEquityTransactions = async (userId: string, organizationId?: string): Promise<EquityTransaction[]> => {
+  try {
+    let query = supabase
+      .from('equity_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('transaction_date', { ascending: false });
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting equity transactions:', error);
+    throw error;
+  }
+};
+
+// Delete an equity transaction
+export const deleteEquityTransaction = async (transactionId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('equity_transactions')
+      .delete()
+      .eq('id', transactionId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting equity transaction:', error);
+    throw error;
+  }
+};
+
+// Get equity summary
+export const getEquitySummary = async (userId: string, organizationId?: string): Promise<EquitySummary> => {
+  try {
+    const { data, error } = await supabase.rpc('get_equity_summary', {
+      p_user_id: userId,
+      p_organization_id: organizationId
+    });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting equity summary:', error);
+    throw error;
+  }
+};
+
+// Get partner summary
+export const getPartnerSummary = async (partnerId: string): Promise<PartnerSummary> => {
+  try {
+    const { data, error } = await supabase.rpc('get_partner_summary', {
+      p_partner_id: partnerId
+    });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting partner summary:', error);
+    throw error;
+  }
+};
+
+// Create profit distribution
+export const createProfitDistribution = async (
+  distributionData: {
+    period_start: string;
+    period_end: string;
+    total_profit: number;
+    total_loss: number;
+  },
+  userId: string,
+  organizationId: string
+): Promise<ProfitDistribution> => {
+  try {
+    const { data: result, error } = await supabase.rpc('create_profit_distribution', {
+      p_period_start: distributionData.period_start,
+      p_period_end: distributionData.period_end,
+      p_total_profit: distributionData.total_profit,
+      p_total_loss: distributionData.total_loss,
+      p_user_id: userId,
+      p_organization_id: organizationId
+    });
+
+    if (error) throw error;
+    return result;
+  } catch (error) {
+    console.error('Error creating profit distribution:', error);
+    throw error;
+  }
+};
+
+// Get profit distributions
+export const getProfitDistributions = async (userId: string, organizationId?: string): Promise<ProfitDistribution[]> => {
+  try {
+    let query = supabase
+      .from('profit_distributions')
+      .select(`
+        *,
+        partner_distributions (
+          *,
+          partners (name)
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting profit distributions:', error);
+    throw error;
+  }
+};
+
+// Approve profit distribution
+export const approveProfitDistribution = async (distributionId: string): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc('approve_profit_distribution', {
+      p_distribution_id: distributionId
+    });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error approving profit distribution:', error);
+    throw error;
+  }
+};
+
+// Mark partner distribution as paid
+export const markDistributionPaid = async (
+  distributionId: string,
+  partnerId: string,
+  paymentData: {
+    payment_date: string;
+    payment_method: string;
+    reference_number?: string;
+    notes?: string;
+  }
+): Promise<void> => {
+  try {
+    const { error } = await supabase.rpc('mark_distribution_paid', {
+      p_distribution_id: distributionId,
+      p_partner_id: partnerId,
+      p_payment_date: paymentData.payment_date,
+      p_payment_method: paymentData.payment_method,
+      p_reference_number: paymentData.reference_number,
+      p_notes: paymentData.notes
+    });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error marking distribution as paid:', error);
+    throw error;
+  }
+};
+
+// Update partner equity percentage
+export const updatePartnerEquity = async (partnerId: string, newEquityPercentage: number): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('partners')
+      .update({ 
+        equity_percentage: newEquityPercentage,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', partnerId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating partner equity:', error);
+    throw error;
+  }
+};
+
+// Deactivate partner
+export const deactivatePartner = async (partnerId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('partners')
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', partnerId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deactivating partner:', error);
+    throw error;
+  }
+};
+
+// Reactivate partner
+export const reactivatePartner = async (partnerId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('partners')
+      .update({ 
+        is_active: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', partnerId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error reactivating partner:', error);
+    throw error;
+  }
+};
+
+// Search partners
+export const searchPartners = async (userId: string, searchTerm: string, organizationId?: string): Promise<Partner[]> => {
+  try {
+    let query = supabase
+      .from('partners')
+      .select('*')
+      .eq('user_id', userId)
+      .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
+      .order('name');
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error searching partners:', error);
+    throw error;
+  }
+};
+
+// Get capital accounts
+export const getCapitalAccounts = async (userId: string, organizationId?: string): Promise<CapitalAccount[]> => {
+  try {
+    let query = supabase
+      .from('capital_accounts')
+      .select(`
+        *,
+        partners (name, partner_type)
+      `)
+      .eq('user_id', userId)
+      .order('period_end', { ascending: false });
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting capital accounts:', error);
+    throw error;
+  }
+};
+
+// Real-time subscriptions
+export const subscribeToPartners = (userId: string, callback: (partners: Partner[]) => void) => {
+  return supabase
+    .channel('partners')
+    .on('postgres_changes', 
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'partners',
+        filter: `user_id=eq.${userId}`
+      }, 
+      () => {
+        getPartners(userId).then(callback);
+      }
+    )
+    .subscribe();
+};
+
+export const subscribeToEquityTransactions = (userId: string, callback: (transactions: EquityTransaction[]) => void) => {
+  return supabase
+    .channel('equity_transactions')
+    .on('postgres_changes', 
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'equity_transactions',
+        filter: `user_id=eq.${userId}`
+      }, 
+      () => {
+        getEquityTransactions(userId).then(callback);
+      }
+    )
+    .subscribe();
 };

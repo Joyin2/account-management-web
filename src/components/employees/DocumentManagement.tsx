@@ -87,10 +87,10 @@ export default function DocumentManagement({
     }
   };
 
-  const handleDownload = (document: UploadedFile) => {
+  const handleDownload = (file: UploadedFile) => {
     const link = document.createElement('a');
-    link.href = document.url;
-    link.download = document.originalName;
+    link.href = file.url;
+    link.download = file.originalName;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -209,10 +209,10 @@ export default function DocumentManagement({
                         {getFileIcon(document.type)}
                         <div className="flex space-x-1">
                           {isExpired(document) && (
-                            <AlertTriangle className="w-4 h-4 text-red-500" title="Expired" />
+                            <AlertTriangle className="w-4 h-4 text-red-500" aria-label="Expired" />
                           )}
                           {isExpiringSoon(document) && (
-                            <AlertTriangle className="w-4 h-4 text-yellow-500" title="Expiring Soon" />
+                            <AlertTriangle className="w-4 h-4 text-yellow-500" aria-label="Expiring Soon" />
                           )}
                         </div>
                       </div>

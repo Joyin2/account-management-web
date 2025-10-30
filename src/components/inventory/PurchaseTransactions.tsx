@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { transactionService, FirestoreTransaction } from '@/lib/firestore/transactions';
+import { TransactionService } from '@/lib/firestore/transactions';
+import { Transaction } from '@/types/transaction';
 import {
   ShoppingCart,
   Calendar,
@@ -15,7 +16,7 @@ import {
   Edit,
   Package
 } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
+// Timestamp is now handled as string in Supabase
 
 interface PurchaseTransactionsProps {
   className?: string;
@@ -23,7 +24,7 @@ interface PurchaseTransactionsProps {
 
 const PurchaseTransactions: React.FC<PurchaseTransactionsProps> = ({ className = '' }) => {
   const { user, userProfile } = useAuth();
-  const [transactions, setTransactions] = useState<FirestoreTransaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -38,10 +39,11 @@ const PurchaseTransactions: React.FC<PurchaseTransactionsProps> = ({ className =
     
     setLoading(true);
     try {
+      const transactionService = new TransactionService();
       const allTransactions = await transactionService.getTransactions(user.uid);
       // Filter for BUY transactions with inventory subtype
       const purchaseTransactions = allTransactions.filter(
-        (transaction) => transaction.type === 'BUY' && transaction.subType === 'inventory'
+        (transaction) => transaction.type === 'BUY' && transaction.sub_type === 'inventory'
       );
       setTransactions(purchaseTransactions);
     } catch (error) {
@@ -55,15 +57,22 @@ const PurchaseTransactions: React.FC<PurchaseTransactionsProps> = ({ className =
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
-      transaction.productName?.toLowerCase().includes(searchLower) ||
-      transaction.vendorName?.toLowerCase().includes(searchLower) ||
+      transaction.product_name?.toLowerCase().includes(searchLower) ||
+      transaction.vendor_name?.toLowerCase().includes(searchLower) ||
       transaction.description.toLowerCase().includes(searchLower) ||
-      transaction.paymentMethod.toLowerCase().includes(searchLower)
+      transaction.payment_method?.toLowerCase().includes(searchLower)
     );
   });
 
-  const formatDate = (date: Timestamp | Date) => {
-    const dateObj = date instanceof Timestamp ? date.toDate() : date;
+  const formatDate = (date: any) => {
+    let dateObj: Date;
+    if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else if (date && typeof date.toDate === 'function') {
+      dateObj = date.toDate();
+    } else {
+      dateObj = date;
+    }
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'short',
@@ -170,7 +179,7 @@ const PurchaseTransactions: React.FC<PurchaseTransactionsProps> = ({ className =
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <h4 className="font-medium text-gray-900">
-                            {transaction.productName || 'Product Purchase'}
+                            {transaction.product_name || 'Product Purchase'}
                           </h4>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                             BUY - Inventory
@@ -187,11 +196,11 @@ const PurchaseTransactions: React.FC<PurchaseTransactionsProps> = ({ className =
                           </div>
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">{transaction.vendorName || 'Unknown Vendor'}</span>
+                            <span className="text-gray-600">{transaction.vendor_name || 'Unknown Vendor'}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <CreditCard className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">{transaction.paymentMethod}</span>
+                            <span className="text-gray-600">{transaction.payment_method}</span>
                           </div>
                         </div>
                         {transaction.quantity && transaction.price && (

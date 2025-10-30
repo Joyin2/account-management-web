@@ -70,7 +70,7 @@ export default function LoginPage() {
           transition={{ delay: 0.3, duration: 0.6 }}
           className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" suppressHydrationWarning={true}>
             {/* Error Message */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">

@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { equityService, type Partner } from '@/services/equityService';
 import { useAuth } from '@/contexts/AuthContext';
-import { Timestamp } from 'firebase/firestore';
+// Using native Date objects instead of Firebase Timestamp
+
 
 import {
   X,

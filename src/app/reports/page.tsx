@@ -10,16 +10,18 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Download, Filter, FileText, BarChart3, Calculator, RefreshCw, FileSpreadsheet, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
+// Using Supabase instead of Firebase
+import { supabase } from '@/lib/supabase';
+// Using native Date objects instead of Firebase Timestamp
 import { useAuth } from '@/contexts/AuthContext';
 import { inventoryService, InventoryItem as ServiceInventoryItem } from '@/services/inventoryService';
-import { transactionService, FirestoreTransaction } from '@/lib/firestore/transactions';
+import { TransactionService } from '@/lib/firestore/transactions';
+import { Transaction } from '@/types/transaction';
 
 // Interfaces for report data
 interface AccountingEntry {
   id: string;
-  date: Timestamp;
+  date: string;
   description: string;
   accounts: {
     account: string;
@@ -44,7 +46,7 @@ interface InventoryItem {
   location: string;
   unit: string;
   totalValue: number;
-  lastUpdated: Timestamp;
+  lastUpdated: string;
 }
 
 interface LedgerEntry {
@@ -910,14 +912,15 @@ export default function ReportsPage() {
       const fromDate = dateFrom ? new Date(dateFrom) : new Date(0);
       const toDate = dateTo ? new Date(dateTo) : new Date();
 
-      // Fetch transactions from Firestore
+      // Fetch transactions from Supabase
+      const transactionService = new TransactionService();
       const transactions = await transactionService.getTransactions(user.uid);
 
       // Filter transactions by date range and GST applicable
       const filteredTransactions = transactions.filter(transaction => {
         const transactionDate = transaction.date.toDate();
         const dateInRange = transactionDate >= fromDate && transactionDate <= toDate;
-        return dateInRange && transaction.gstApplicable;
+        return dateInRange && transaction.gst_applicable;
       });
 
       const sales: Array<{
@@ -953,7 +956,7 @@ export default function ReportsPage() {
       // Process transactions
       filteredTransactions.forEach(transaction => {
         const baseAmount = transaction.amount;
-        const gstRate = parseFloat(transaction.gstPercentage || '18'); // Default 18% GST
+        const gstRate = parseFloat((transaction as any).gstPercentage || '18'); // Default 18% GST
         const gstAmount = (baseAmount * gstRate) / 100;
         const totalAmount = baseAmount + gstAmount;
 
@@ -980,7 +983,7 @@ export default function ReportsPage() {
           purchases.push({
             ...transactionData,
             billNumber: `BILL-${transactionId.slice(-6).toUpperCase()}`,
-            expenseType: transaction.expenseType
+            expenseType: transaction.expense_type
           });
           totalPurchasesAmount += baseAmount;
           totalPurchasesGST += gstAmount;
@@ -1175,7 +1178,7 @@ export default function ReportsPage() {
       const fromDate = dateFrom ? new Date(dateFrom) : new Date(0);
       const toDate = dateTo ? new Date(dateTo) : new Date();
 
-      // Fetch transactions from Firestore
+      // Fetch transactions from Supabase
       const transactions = await transactionService.getTransactions(user.uid);
 
       // Filter transactions by date range
@@ -1213,21 +1216,21 @@ export default function ReportsPage() {
 
         if (transaction.type === 'SELL') {
           totalIncome += amount;
-          if (transaction.gstApplicable && transaction.gstPercentage) {
-            totalGSTCollected += (amount * parseFloat(transaction.gstPercentage)) / 100;
+          if (transaction.gst_applicable && (transaction as any).gstPercentage) {
+            totalGSTCollected += (amount * parseFloat((transaction as any).gstPercentage)) / 100;
           }
         } else if (transaction.type === 'BUY' || transaction.type === 'EXPENDITURE') {
           totalExpenses += amount;
 
           // Categorize expenses
-          if (transaction.expenseType && expenseCategories.hasOwnProperty(transaction.expenseType)) {
-            expenseCategories[transaction.expenseType] += amount;
+          if (transaction.expense_type && expenseCategories.hasOwnProperty(transaction.expense_type)) {
+            expenseCategories[transaction.expense_type] += amount;
           } else {
             expenseCategories['other'] += amount;
           }
 
-          if (transaction.gstApplicable && transaction.gstPercentage) {
-            totalGSTPaid += (amount * parseFloat(transaction.gstPercentage)) / 100;
+          if (transaction.gst_applicable && (transaction as any).gstPercentage) {
+            totalGSTPaid += (amount * parseFloat((transaction as any).gstPercentage)) / 100;
           }
         }
 
@@ -1331,7 +1334,7 @@ export default function ReportsPage() {
 
       console.log('Fetching transactions for receivables report...');
 
-      // Fetch real transactions from Firestore
+      // Fetch real transactions from Supabase
       const transactions = await transactionService.getTransactionsByDateRange(
         user.uid, // Using user.uid as organizationId
         fromDate,
@@ -1363,7 +1366,7 @@ export default function ReportsPage() {
       }>();
 
       salesTransactions.forEach(transaction => {
-        const customer = transaction.buyerName ||
+        const customer = transaction.buyer_name ||
                         transaction.description.split(' ')[0] ||
                         'Unknown Customer';
         const invoiceNumber = transaction.id || `INV-${Date.now()}`;
@@ -1462,7 +1465,7 @@ export default function ReportsPage() {
 
       console.log('Fetching transactions for payables report...');
 
-      // Fetch real transactions from Firestore
+      // Fetch real transactions from Supabase
       const transactions = await transactionService.getTransactionsByDateRange(
         user.uid, // Using user.uid as organizationId
         fromDate,
@@ -1490,7 +1493,7 @@ export default function ReportsPage() {
       }>();
 
       purchaseTransactions.forEach(transaction => {
-        const supplier = transaction.vendorName ||
+        const supplier = transaction.vendor_name ||
                         transaction.description.split(' ')[0] ||
                         'Unknown Supplier';
         const billNumber = transaction.id || `BILL-${Date.now()}`;
@@ -1589,7 +1592,7 @@ export default function ReportsPage() {
 
       console.log('Fetching transactions for bank report...');
 
-      // Fetch real transactions from Firestore
+      // Fetch real transactions from Supabase
       const transactions = await transactionService.getTransactionsByDateRange(
         user.uid, // Using user.uid as organizationId
         fromDate,
@@ -1865,7 +1868,7 @@ export default function ReportsPage() {
 
       console.log(`Fetching transactions for ${category} expense report...`);
 
-      // Fetch real transactions from Firestore
+      // Fetch real transactions from Supabase
       const transactions = await transactionService.getTransactionsByDateRange(
         user.uid, // Using user.uid as organizationId
         fromDate,
@@ -1891,7 +1894,7 @@ export default function ReportsPage() {
         } else {
           // For other categories, match by description or expense type
           matchesCategory = descriptionLower.includes(categoryLower) ||
-                          Boolean(transaction.expenseType && transaction.expenseType.toLowerCase().includes(categoryLower));
+                          Boolean(transaction.expense_type && transaction.expense_type.toLowerCase().includes(categoryLower));
         }
 
         return amountInRange && isExpenseTransaction && matchesCategory;
@@ -1899,7 +1902,7 @@ export default function ReportsPage() {
 
       const expenses: ExpenseCategoryData[] = expenseTransactions.map(transaction => {
         // Extract detailed information if available
-        const detailedInfo = transaction.detailedInfo || {};
+        const detailedInfo = (transaction as any).detailedInfo || {};
         const tdsInfo = (detailedInfo.tds as any) || {};
         const tcsInfo = (detailedInfo.tcs as any) || {};
         const pfInfo = (detailedInfo.providentFund as any) || {};
@@ -1911,16 +1914,16 @@ export default function ReportsPage() {
           description: transaction.description,
           amount: transaction.amount,
           category: category,
-          subcategory: transaction.expenseType || '',
+          subcategory: transaction.expense_type || '',
           reference: transaction.id || `REF-${Date.now()}`,
           // Payment tracking fields
-          totalAmount: transaction.totalAmount || transaction.amount,
-          paidAmount: transaction.paidAmount || 0,
-          outstandingAmount: transaction.outstandingAmount || 0,
-          dueDate: transaction.dueDate ? transaction.dueDate.toDate().toLocaleDateString('en-IN') : undefined,
-          paymentDate: transaction.paymentDate ? transaction.paymentDate.toDate().toLocaleDateString('en-IN') : undefined,
-          advancePayment: transaction.advancePayment || 0,
-          paymentStatus: transaction.paymentStatus || 'pending',
+          totalAmount: (transaction as any).totalAmount || transaction.amount,
+          paidAmount: (transaction as any).paidAmount || 0,
+          outstandingAmount: (transaction as any).outstandingAmount || 0,
+          dueDate: (transaction as any).dueDate ? (transaction as any).dueDate.toDate().toLocaleDateString('en-IN') : undefined,
+          paymentDate: (transaction as any).paymentDate ? (transaction as any).paymentDate.toDate().toLocaleDateString('en-IN') : undefined,
+          advancePayment: (transaction as any).advancePayment || 0,
+          paymentStatus: (transaction as any).paymentStatus || 'pending',
           // Detailed information
           tdsAmount: tdsInfo.applicable ? parseFloat(tdsInfo.amount || '0') : undefined,
           tcsAmount: tcsInfo.applicable ? parseFloat(tcsInfo.amount || '0') : undefined,
@@ -3753,7 +3756,7 @@ export default function ReportsPage() {
             ) && (
               <div className="text-center py-8 text-gray-500">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No data available. Click "Generate Report" to fetch data from Firestore.</p>
+                <p>No data available. Click "Generate Report" to fetch data from Supabase.</p>
               </div>
             )}
           </CardContent>

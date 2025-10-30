@@ -6,10 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint",
-    "reset-database": "node reset-firestore-database.js",
-    "reset-database-client": "node reset-firestore-client.js",
-    "reset-database-auth": "node reset-firestore-auth.js"
+    "lint": "eslint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -20,13 +17,12 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@supabase/supabase-js": "^2.76.1",
     "@types/aos": "^3.0.7",
     "aos": "^2.3.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "firebase": "^12.2.1",
-    "firebase-admin": "^12.7.0",
     "framer-motion": "^12.23.12",
     "jspdf": "^3.0.2",
     "lucide-react": "^0.542.0",

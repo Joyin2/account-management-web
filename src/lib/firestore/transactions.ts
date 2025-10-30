@@ -1,294 +1,296 @@
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  orderBy, 
-  where, 
-  Timestamp 
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// Transaction service using Supabase MCP integration
+import { supabase, mcpSupabase, dbOperations } from '@/lib/supabase';
+import { Transaction, TransactionFilters, CreateTransactionData, UpdateTransactionData, TransactionSummary, TransactionsByType, TransactionsByCategory } from '@/types/transaction';
 
-export interface FirestoreTransaction {
-  id?: string;
-  date: Timestamp;
-  type: 'BUY' | 'SELL' | 'EXPENDITURE' | 'CAPITAL_DRAWINGS' | 'BANK' | 'LOAN' | 'EQUITY';
-  subType?: string;
-  amount: number;
-  description: string;
-  vendorName?: string;
-  buyerName?: string;
-  paymentMethod: string;
-  gstApplicable: boolean;
-  gstPercentage?: string;
-  gstn?: string;
-  gstType?: 'Regular' | 'Composite';
-  remarks?: string;
-  importExportTax?: number;
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  // Type-specific fields
-  productName?: string;
-  quantity?: number;
-  price?: number;
-  assetName?: string;
-  expenseType?: string;
-  paidTo?: string;
-  billUrl?: string;
-  partnerOwner?: string;
-  bankAccount?: string;
-  transactionType?: string;
-  loanProvider?: string;
-  interestRate?: number;
-  emiAmount?: number;
-  // Payment tracking fields
-  totalAmount?: number;
-  paidAmount?: number;
-  outstandingAmount?: number;
-  dueDate?: Timestamp;
-  paymentDate?: Timestamp;
-  advancePayment?: number;
-  paymentStatus?: 'pending' | 'partial' | 'paid' | 'overdue';
-  // Detailed information fields
-  showDetailedInfo?: boolean;
-  detailedInfo?: {
-    tds?: {
-      applicable: boolean;
-      percentage?: string;
-      amount?: string;
-      panNumber?: string;
-      tdsSection?: string;
+export class TransactionService {
+  private tableName = 'transactions';
+
+  // Create a new transaction using MCP operations
+  async createTransaction(data: CreateTransactionData): Promise<Transaction> {
+    const transactionData = {
+      ...data,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    tcs?: {
-      applicable: boolean;
-      percentage?: string;
-      amount?: string;
-    };
-    providentFund?: {
-      applicable: boolean;
-      employeeContribution?: string;
-      employerContribution?: string;
-      pfNumber?: string;
-    };
-    insurance?: {
-      applicable: boolean;
-      policyNumber?: string;
-      premium?: string;
-      coverage?: string;
-      provider?: string;
-    };
-    transfers?: {
-      applicable: boolean;
-      fromAccount?: string;
-      toAccount?: string;
-      transferType?: string;
-      referenceNumber?: string;
-    };
-    salary?: {
-      basicSalary?: string;
-      hra?: string;
-      allowances?: string;
-      deductions?: string;
-      netSalary?: string;
-      employeeId?: string;
-      designation?: string;
-    };
-  };
-}
 
-const COLLECTION_NAME = 'transactions';
-
-export const transactionService = {
-  // Create a new transaction
-  async createTransaction(transaction: Omit<FirestoreTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const transactionData = {
-        ...transaction,
-        createdAt: now,
-        updatedAt: now
-      };
-      
-      // Validate required fields before sending to Firestore
-      const requiredFields = ['date', 'type', 'amount', 'description', 'paymentMethod', 'gstApplicable', 'userId', 'organizationId'];
-      const missingFields = requiredFields.filter(field => {
-        const value = transactionData[field as keyof typeof transactionData];
-        return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
-      });
-      
-      if (missingFields.length > 0) {
-        throw new Error(`Missing or empty required fields: ${missingFields.join(', ')}`);
-      }
-      
-      // Validate field types and constraints
-      if (typeof transactionData.amount !== 'number' || transactionData.amount <= 0) {
-        throw new Error('Amount must be a positive number');
-      }
-      
-      if (typeof transactionData.description !== 'string' || transactionData.description.trim().length === 0) {
-        throw new Error('Description must be a non-empty string');
-      }
-      
-      if (typeof transactionData.paymentMethod !== 'string' || transactionData.paymentMethod.trim().length === 0) {
-        throw new Error('Payment method must be a non-empty string');
-      }
-      
-      // Validate transaction type
-      const validTypes = ['BUY', 'SELL', 'EXPENDITURE', 'CAPITAL_DRAWINGS', 'BANK', 'LOAN', 'EQUITY'];
-      if (!validTypes.includes(transactionData.type)) {
-        throw new Error(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
-      }
-
-      // Validate payment method
-      const validPaymentMethods = ['Cash', 'Bank', 'Credit', 'UPI', 'Card', 'Cheque', 'NEFT', 'RTGS'];
-      if (!validPaymentMethods.includes(transactionData.paymentMethod)) {
-        throw new Error(`Invalid payment method. Must be one of: ${validPaymentMethods.join(', ')}`);
-      }
-
-      // Validate payment tracking fields if present
-      if (transactionData.paymentStatus) {
-        const validStatuses = ['pending', 'partial', 'paid', 'overdue'];
-        if (!validStatuses.includes(transactionData.paymentStatus)) {
-          throw new Error(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`);
-        }
-      }
-
-      // Validate payment amounts
-      if (transactionData.paidAmount !== undefined && transactionData.paidAmount < 0) {
-        throw new Error('Paid amount cannot be negative');
-      }
-
-      if (transactionData.advancePayment !== undefined && transactionData.advancePayment < 0) {
-        throw new Error('Advance payment cannot be negative');
-      }
-
-      if (transactionData.totalAmount !== undefined && transactionData.totalAmount <= 0) {
-        throw new Error('Total amount must be positive');
-      }
-      
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), transactionData);
-      return docRef.id;
-    } catch (error) {
-      console.error('Error creating transaction:', error);
-      if (error instanceof Error) {
-        throw new Error(`Failed to create transaction: ${error.message}`);
-      }
-      throw new Error('Failed to create transaction');
-    }
-  },
-
-  // Get all transactions for an organization
-  async getTransactions(organizationId: string): Promise<FirestoreTransaction[]> {
-    try {
-      console.log('DEBUG: Querying transactions for organizationId:', organizationId);
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('organizationId', '==', organizationId),
-        orderBy('date', 'desc')
-      );
-      
-      console.log('DEBUG: Executing Firestore query...');
-      const querySnapshot = await getDocs(q);
-      console.log('DEBUG: Query completed. Document count:', querySnapshot.docs.length);
-      
-      const transactions = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('DEBUG: Transaction document:', { id: doc.id, data });
-        return {
-          id: doc.id,
-          ...data
-        };
-      }) as FirestoreTransaction[];
-      
-      console.log('DEBUG: Returning transactions:', transactions);
-      return transactions;
-    } catch (error) {
-      console.error('DEBUG: Error fetching transactions:', error);
-      console.error('DEBUG: Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        code: (error as any)?.code,
-        stack: error instanceof Error ? error.stack : undefined,
-        organizationId
-      });
-      throw new Error('Failed to fetch transactions');
-    }
-  },
-
-  // Get transactions by type
-  async getTransactionsByType(organizationId: string, type: string): Promise<FirestoreTransaction[]> {
-    try {
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('organizationId', '==', organizationId),
-        where('type', '==', type),
-        orderBy('date', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as FirestoreTransaction[];
-    } catch (error) {
-      console.error('Error fetching transactions by type:', error);
-      throw new Error('Failed to fetch transactions by type');
-    }
-  },
-
-  // Update a transaction
-  async updateTransaction(id: string, updates: Partial<FirestoreTransaction>): Promise<void> {
-    try {
-      const transactionRef = doc(db, COLLECTION_NAME, id);
-      await updateDoc(transactionRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
-    } catch (error) {
-      console.error('Error updating transaction:', error);
-      throw new Error('Failed to update transaction');
-    }
-  },
-
-  // Delete a transaction
-  async deleteTransaction(id: string): Promise<void> {
-    try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
-    } catch (error) {
-      console.error('Error deleting transaction:', error);
-      throw new Error('Failed to delete transaction');
-    }
-  },
-
-  // Get transactions for a specific date range
-  async getTransactionsByDateRange(
-    organizationId: string, 
-    startDate: Date, 
-    endDate: Date
-  ): Promise<FirestoreTransaction[]> {
-    try {
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('organizationId', '==', organizationId),
-        where('date', '>=', Timestamp.fromDate(startDate)),
-        where('date', '<=', Timestamp.fromDate(endDate)),
-        orderBy('date', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as FirestoreTransaction[];
-    } catch (error) {
-      console.error('Error fetching transactions by date range:', error);
-      throw new Error('Failed to fetch transactions by date range');
+      const result = await dbOperations.create(this.tableName, transactionData);
+      return result[0];
+    } catch (error: any) {
+      throw new Error(`Failed to create transaction: ${error.message}`);
     }
   }
-};
 
-export default transactionService;
+  // Get all transactions using MCP
+  async getAllTransactions(): Promise<Transaction[]> {
+    try {
+      const data = await dbOperations.read(this.tableName);
+      return data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch (error: any) {
+      throw new Error(`Failed to fetch transactions: ${error.message}`);
+    }
+  }
+
+  // Get transaction by ID
+  async getTransactionById(id: string): Promise<Transaction | null> {
+    try {
+      const data = await dbOperations.read(this.tableName, { id });
+      return data.length > 0 ? data[0] : null;
+    } catch (error: any) {
+      throw new Error(`Failed to fetch transaction: ${error.message}`);
+    }
+  }
+
+  // Get transactions by organization using MCP
+  async getTransactionsByOrganization(organizationId: string): Promise<Transaction[]> {
+    try {
+      const data = await dbOperations.read(this.tableName, { organization_id: organizationId });
+      return data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch (error: any) {
+      throw new Error(`Failed to fetch transactions: ${error.message}`);
+    }
+  }
+
+  // Get transactions with filters using raw SQL through MCP
+  async getTransactionsWithFilters(filters: TransactionFilters): Promise<Transaction[]> {
+    try {
+      let whereConditions: string[] = [];
+      let params: any[] = [];
+      let paramIndex = 1;
+
+      if (filters.organizationId) {
+        whereConditions.push(`organization_id = $${paramIndex}`);
+        params.push(filters.organizationId);
+        paramIndex++;
+      }
+
+      if (filters.type) {
+        whereConditions.push(`type = $${paramIndex}`);
+        params.push(filters.type);
+        paramIndex++;
+      }
+
+      if (filters.category) {
+        whereConditions.push(`category = $${paramIndex}`);
+        params.push(filters.category);
+        paramIndex++;
+      }
+
+      if (filters.startDate) {
+        whereConditions.push(`date >= $${paramIndex}`);
+        params.push(filters.startDate);
+        paramIndex++;
+      }
+
+      if (filters.endDate) {
+        whereConditions.push(`date <= $${paramIndex}`);
+        params.push(filters.endDate);
+        paramIndex++;
+      }
+
+      if (filters.minAmount !== undefined) {
+        whereConditions.push(`amount >= $${paramIndex}`);
+        params.push(filters.minAmount);
+        paramIndex++;
+      }
+
+      if (filters.maxAmount !== undefined) {
+        whereConditions.push(`amount <= $${paramIndex}`);
+        params.push(filters.maxAmount);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const sql = `SELECT * FROM ${this.tableName} ${whereClause} ORDER BY created_at DESC`;
+
+      const data = await mcpSupabase.executeQuery(sql, params);
+      return data || [];
+    } catch (mcpError: any) {
+      // Fallback to regular Supabase query if MCP fails
+      let query = supabase.from(this.tableName).select('*');
+
+      if (filters.organizationId) {
+        query = query.eq('organization_id', filters.organizationId);
+      }
+
+      if (filters.type) {
+        query = query.eq('type', filters.type);
+      }
+
+      if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+
+      if (filters.startDate) {
+        query = query.gte('date', filters.startDate);
+      }
+
+      if (filters.endDate) {
+        query = query.lte('date', filters.endDate);
+      }
+
+      if (filters.minAmount !== undefined) {
+        query = query.gte('amount', filters.minAmount);
+      }
+
+      if (filters.maxAmount !== undefined) {
+        query = query.lte('amount', filters.maxAmount);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to fetch transactions: ${error.message}`);
+      }
+
+      return data || [];
+    }
+  }
+
+  // Get transactions by date range
+  async getTransactionsByDateRange(startDate: string, endDate: string, organizationId?: string): Promise<Transaction[]> {
+    const filters: TransactionFilters = {
+      startDate,
+      endDate,
+      organizationId
+    };
+    return this.getTransactionsWithFilters(filters);
+  }
+
+  // Get transactions by type
+  async getTransactionsByType(type: string, organizationId?: string): Promise<Transaction[]> {
+    const filters: TransactionFilters = {
+      type,
+      organizationId
+    };
+    return this.getTransactionsWithFilters(filters);
+  }
+
+  // Update transaction using MCP
+  async updateTransaction(id: string, data: UpdateTransactionData): Promise<Transaction> {
+    const updateData = {
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const result = await dbOperations.update(this.tableName, id, updateData);
+      return result[0];
+    } catch (error: any) {
+      throw new Error(`Failed to update transaction: ${error.message}`);
+    }
+  }
+
+  // Delete transaction using MCP
+  async deleteTransaction(id: string): Promise<void> {
+    try {
+      await dbOperations.delete(this.tableName, id);
+    } catch (error: any) {
+      throw new Error(`Failed to delete transaction: ${error.message}`);
+    }
+  }
+
+  // Get transaction summary using MCP
+  async getTransactionSummary(organizationId?: string): Promise<TransactionSummary> {
+    try {
+      const whereClause = organizationId ? `WHERE organization_id = $1` : '';
+      const params = organizationId ? [organizationId] : [];
+      
+      const sql = `
+        SELECT 
+          COUNT(*) as total_transactions,
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expense
+        FROM ${this.tableName} 
+        ${whereClause}
+      `;
+
+      const result = await mcpSupabase.executeQuery(sql, params);
+      
+      if (result && result.length > 0) {
+        const row = result[0];
+        return {
+          totalTransactions: parseInt(row.total_transactions) || 0,
+          totalIncome: parseFloat(row.total_income) || 0,
+          totalExpense: parseFloat(row.total_expense) || 0,
+          netAmount: (parseFloat(row.total_income) || 0) - (parseFloat(row.total_expense) || 0),
+        };
+      }
+    } catch (error) {
+      console.warn('MCP query failed, falling back to regular query:', error);
+    }
+
+    // Fallback to regular query
+    const transactions = await this.getTransactionsWithFilters({ organizationId });
+    const totalIncome = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpense = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return {
+      totalTransactions: transactions.length,
+      totalIncome,
+      totalExpense,
+      netAmount: totalIncome - totalExpense,
+    };
+  }
+
+  // Get transactions grouped by type
+  async getTransactionsByTypeGrouped(organizationId?: string): Promise<TransactionsByType> {
+    const transactions = await this.getTransactionsWithFilters({ organizationId });
+    
+    const grouped: TransactionsByType = {
+      income: transactions.filter(t => t.type === 'income'),
+      expense: transactions.filter(t => t.type === 'expense'),
+      transfer: transactions.filter(t => t.type === 'transfer'),
+    };
+
+    return grouped;
+  }
+
+  // Get transactions grouped by category
+  async getTransactionsByCategory(organizationId?: string): Promise<TransactionsByCategory> {
+    const transactions = await this.getTransactionsWithFilters({ organizationId });
+    const grouped: TransactionsByCategory = {};
+
+    transactions.forEach(transaction => {
+      const category = transaction.category || 'uncategorized';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(transaction);
+    });
+
+    return grouped;
+  }
+
+  // Test MCP connection
+  async testMCPConnection(): Promise<{ success: boolean; message: string }> {
+    try {
+      const health = await mcpSupabase.healthCheck();
+      if (health.healthy) {
+        return { success: true, message: 'MCP connection successful' };
+      } else {
+        return { success: false, message: `MCP connection failed: ${health.error}` };
+      }
+    } catch (error: any) {
+      return { success: false, message: `MCP test failed: ${error.message}` };
+    }
+  }
+
+  // Get database statistics through MCP
+  async getDatabaseStats() {
+    try {
+      return await mcpSupabase.getDatabaseStats();
+    } catch (error: any) {
+      throw new Error(`Failed to get database stats: ${error.message}`);
+    }
+  }
+}
+
+// Export singleton instance
+export const transactionService = new TransactionService();

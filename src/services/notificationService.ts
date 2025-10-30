@@ -1,23 +1,10 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  Timestamp,
-  onSnapshot
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 
 export interface Notification {
   id?: string;
-  recipientId: string; // The user who receives the notification
-  userId: string; // The user who created the notification
-  organizationId: string;
+  recipient_id: string; // The user who receives the notification
+  user_id: string; // The user who created the notification
+  organization_id: string;
   type: 'leave_approval' | 'leave_rejection' | 'payroll_processed' | 'document_uploaded' | 'attendance_reminder' | 'general';
   title: string;
   message: string;
@@ -25,20 +12,20 @@ export interface Notification {
   read: boolean;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   channels: ('in_app' | 'email' | 'sms')[];
-  createdAt: Timestamp;
-  readAt?: Timestamp;
-  emailSent?: boolean;
-  smsSent?: boolean;
-  emailSentAt?: Timestamp;
-  smsSentAt?: Timestamp;
+  created_at: string;
+  read_at?: string;
+  email_sent?: boolean;
+  sms_sent?: boolean;
+  email_sent_at?: string;
+  sms_sent_at?: string;
 }
 
 export interface EmailTemplate {
   id: string;
   name: string;
   subject: string;
-  htmlContent: string;
-  textContent: string;
+  html_content: string;
+  text_content: string;
   variables: string[];
 }
 
@@ -50,223 +37,178 @@ export interface SMSTemplate {
 }
 
 class NotificationService {
-  private readonly NOTIFICATIONS_COLLECTION = 'notifications';
-  private readonly EMAIL_TEMPLATES_COLLECTION = 'emailTemplates';
-  private readonly SMS_TEMPLATES_COLLECTION = 'smsTemplates';
+  private readonly NOTIFICATIONS_TABLE = 'notifications';
+  private readonly EMAIL_TEMPLATES_TABLE = 'email_templates';
+  private readonly SMS_TEMPLATES_TABLE = 'sms_templates';
 
-  // Create a new notification
-  async createNotification(notificationData: Omit<Notification, 'id' | 'createdAt' | 'read'>): Promise<string> {
+  async createNotification(notificationData: Omit<Notification, 'id' | 'created_at' | 'read'>): Promise<string> {
     try {
       const notification: Omit<Notification, 'id'> = {
         ...notificationData,
         read: false,
-        createdAt: Timestamp.now()
+        created_at: new Date().toISOString()
       };
 
-      const docRef = await addDoc(collection(db, this.NOTIFICATIONS_COLLECTION), notification);
-      
-      // Send external notifications if specified
+      const { data, error } = await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .insert(notification)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Send notifications through various channels
       if (notification.channels.includes('email')) {
-        await this.sendEmailNotification(docRef.id, notification);
-      }
-      
-      if (notification.channels.includes('sms')) {
-        await this.sendSMSNotification(docRef.id, notification);
+        await this.sendEmailNotification(data.id, notification as Notification);
       }
 
-      return docRef.id;
+      if (notification.channels.includes('sms')) {
+        await this.sendSMSNotification(data.id, notification as Notification);
+      }
+
+      return data.id;
     } catch (error) {
       console.error('Error creating notification:', error);
-      throw new Error('Failed to create notification');
+      throw error;
     }
   }
 
-  // Get notifications for a user
   async getUserNotifications(userId: string, unreadOnly: boolean = false): Promise<Notification[]> {
     try {
-      let q = query(
-        collection(db, this.NOTIFICATIONS_COLLECTION),
-        where('recipientId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-      );
+      let query = supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .select('*')
+        .eq('recipient_id', userId)
+        .order('created_at', { ascending: false });
 
       if (unreadOnly) {
-        q = query(
-          collection(db, this.NOTIFICATIONS_COLLECTION),
-          where('recipientId', '==', userId),
-          where('read', '==', false),
-          orderBy('createdAt', 'desc')
-        );
+        query = query.eq('read', false);
       }
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Notification));
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      throw new Error('Failed to fetch notifications');
+      throw error;
     }
   }
 
-  // Mark notification as read
   async markAsRead(notificationId: string): Promise<void> {
     try {
-      const docRef = doc(db, this.NOTIFICATIONS_COLLECTION, notificationId);
-      await updateDoc(docRef, {
-        read: true,
-        readAt: Timestamp.now()
-      });
+      const { error } = await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .update({ 
+          read: true, 
+          read_at: new Date().toISOString() 
+        })
+        .eq('id', notificationId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error marking notification as read:', error);
-      throw new Error('Failed to mark notification as read');
+      throw error;
     }
   }
 
-  // Mark all notifications as read for a user
   async markAllAsRead(userId: string): Promise<void> {
     try {
-      const q = query(
-        collection(db, this.NOTIFICATIONS_COLLECTION),
-        where('recipientId', '==', userId),
-        where('read', '==', false)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const updatePromises = querySnapshot.docs.map(doc => 
-        updateDoc(doc.ref, {
-          read: true,
-          readAt: Timestamp.now()
+      const { error } = await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .update({ 
+          read: true, 
+          read_at: new Date().toISOString() 
         })
-      );
+        .eq('recipient_id', userId)
+        .eq('read', false);
 
-      await Promise.all(updatePromises);
+      if (error) throw error;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
-      throw new Error('Failed to mark all notifications as read');
+      throw error;
     }
   }
 
-  // Subscribe to real-time notifications
   subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void): () => void {
-    // Try the optimized query first, fallback to simple query if index not ready
-    const q = query(
-      collection(db, this.NOTIFICATIONS_COLLECTION),
-      where('recipientId', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    );
-
-    return onSnapshot(q, (querySnapshot) => {
-      const notifications = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Notification));
-      callback(notifications);
-    }, (error) => {
-      console.error('Error in notifications subscription:', error);
-
-      // Fallback to simple query without orderBy if index not ready
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
-        console.log('Index not ready, using fallback query...');
-        const fallbackQuery = query(
-          collection(db, this.NOTIFICATIONS_COLLECTION),
-          where('recipientId', '==', userId),
-          limit(20)
-        );
-
-        return onSnapshot(fallbackQuery, (querySnapshot) => {
-          const notifications = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as Notification));
-
-          // Sort manually since we can't use orderBy
-          notifications.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: this.NOTIFICATIONS_TABLE,
+          filter: `recipient_id=eq.${userId}`
+        },
+        async () => {
+          // Fetch updated notifications when changes occur
+          const notifications = await this.getUserNotifications(userId);
           callback(notifications);
-        }, (fallbackError) => {
-          console.error('Error in fallback notifications subscription:', fallbackError);
-        });
-      }
-    });
+        }
+      )
+      .subscribe();
+
+    // Initial fetch
+    this.getUserNotifications(userId).then(callback);
+
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 
-  // Send email notification using EmailJS or similar service
   private async sendEmailNotification(notificationId: string, notification: Notification): Promise<void> {
     try {
-      // Using EmailJS for client-side email sending
-      // In production, use server-side email service like SendGrid, AWS SES, etc.
+      // This would integrate with your email service (SendGrid, AWS SES, etc.)
+      console.log('Sending email notification:', notification.title);
+      
+      // Update notification to mark email as sent
+      await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .update({
+          email_sent: true,
+          email_sent_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
 
-      const emailData = {
-        to_email: notification.data?.email || 'user@example.com',
-        subject: notification.title,
-        message: notification.message,
-        priority: notification.priority,
-        organization: notification.organizationId
-      };
-
-      // For demo purposes, we'll simulate email sending
-      console.log('Sending email notification:', emailData);
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Mark as sent
-      const docRef = doc(db, this.NOTIFICATIONS_COLLECTION, notificationId);
-      await updateDoc(docRef, {
-        emailSent: true,
-        emailSentAt: Timestamp.now()
-      });
     } catch (error) {
       console.error('Error sending email notification:', error);
     }
   }
 
-  // Send SMS notification using Twilio or similar service
   private async sendSMSNotification(notificationId: string, notification: Notification): Promise<void> {
     try {
-      // Using Twilio or similar SMS service
-      // In production, integrate with actual SMS provider
+      // This would integrate with your SMS service (Twilio, AWS SNS, etc.)
+      console.log('Sending SMS notification:', notification.title);
+      
+      // Update notification to mark SMS as sent
+      await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .update({
+          sms_sent: true,
+          sms_sent_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
 
-      const smsData = {
-        to: notification.data?.phone || '+1234567890',
-        body: `${notification.title}: ${notification.message}`,
-        priority: notification.priority
-      };
-
-      // For demo purposes, we'll simulate SMS sending
-      console.log('Sending SMS notification:', smsData);
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Mark as sent
-      const docRef = doc(db, this.NOTIFICATIONS_COLLECTION, notificationId);
-      await updateDoc(docRef, {
-        smsSent: true,
-        smsSentAt: Timestamp.now()
-      });
     } catch (error) {
       console.error('Error sending SMS notification:', error);
     }
   }
 
-  // Helper methods for common notification types
   async notifyLeaveApproval(
     employeeId: string, 
     organizationId: string, 
     leaveApplication: any
   ): Promise<string> {
     return this.createNotification({
-      recipientId: employeeId,
-      userId: employeeId, // For now, same as recipient
-      organizationId,
+      recipient_id: employeeId,
+      user_id: 'system',
+      organization_id: organizationId,
       type: 'leave_approval',
       title: 'Leave Application Approved',
       message: `Your leave application from ${leaveApplication.startDate} to ${leaveApplication.endDate} has been approved.`,
-      data: { leaveApplicationId: leaveApplication.id },
+      data: leaveApplication,
       priority: 'medium',
       channels: ['in_app', 'email']
     });
@@ -279,14 +221,14 @@ class NotificationService {
     reason?: string
   ): Promise<string> {
     return this.createNotification({
-      recipientId: employeeId,
-      userId: employeeId, // For now, same as recipient
-      organizationId,
+      recipient_id: employeeId,
+      user_id: 'system',
+      organization_id: organizationId,
       type: 'leave_rejection',
       title: 'Leave Application Rejected',
-      message: `Your leave application from ${leaveApplication.startDate} to ${leaveApplication.endDate} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
-      data: { leaveApplicationId: leaveApplication.id, reason },
-      priority: 'medium',
+      message: `Your leave application has been rejected. ${reason ? `Reason: ${reason}` : ''}`,
+      data: { ...leaveApplication, rejectionReason: reason },
+      priority: 'high',
       channels: ['in_app', 'email']
     });
   }
@@ -297,14 +239,14 @@ class NotificationService {
     payroll: any
   ): Promise<string> {
     return this.createNotification({
-      recipientId: employeeId,
-      userId: employeeId, // For now, same as recipient
-      organizationId,
+      recipient_id: employeeId,
+      user_id: 'system',
+      organization_id: organizationId,
       type: 'payroll_processed',
       title: 'Payroll Processed',
-      message: `Your salary for ${payroll.month}/${payroll.year} has been processed. Net pay: ₹${payroll.netPay.toLocaleString()}`,
-      data: { payrollId: payroll.id },
-      priority: 'high',
+      message: `Your payroll for ${payroll.period} has been processed.`,
+      data: payroll,
+      priority: 'medium',
       channels: ['in_app', 'email']
     });
   }
@@ -315,13 +257,13 @@ class NotificationService {
     document: any
   ): Promise<string> {
     return this.createNotification({
-      recipientId: employeeId,
-      userId: employeeId, // For now, same as recipient
-      organizationId,
+      recipient_id: employeeId,
+      user_id: 'system',
+      organization_id: organizationId,
       type: 'document_uploaded',
-      title: 'Document Uploaded',
-      message: `A new document "${document.originalName}" has been uploaded to your profile.`,
-      data: { documentId: document.id },
+      title: 'New Document Available',
+      message: `A new document "${document.name}" has been uploaded for you.`,
+      data: document,
       priority: 'low',
       channels: ['in_app']
     });
@@ -332,24 +274,32 @@ class NotificationService {
     organizationId: string
   ): Promise<string> {
     return this.createNotification({
-      recipientId: employeeId,
-      userId: employeeId, // For now, same as recipient
-      organizationId,
+      recipient_id: employeeId,
+      user_id: 'system',
+      organization_id: organizationId,
       type: 'attendance_reminder',
       title: 'Attendance Reminder',
-      message: 'Don\'t forget to mark your attendance for today.',
+      message: 'Please remember to mark your attendance for today.',
       priority: 'medium',
       channels: ['in_app', 'sms']
     });
   }
 
-  // Bulk notifications
-  async sendBulkNotifications(notifications: Omit<Notification, 'id' | 'createdAt' | 'read'>[]): Promise<string[]> {
-    const promises = notifications.map(notification => this.createNotification(notification));
-    return Promise.all(promises);
+  async sendBulkNotifications(notifications: Omit<Notification, 'id' | 'created_at' | 'read'>[]): Promise<string[]> {
+    const results: string[] = [];
+    
+    for (const notification of notifications) {
+      try {
+        const id = await this.createNotification(notification);
+        results.push(id);
+      } catch (error) {
+        console.error('Error sending bulk notification:', error);
+      }
+    }
+    
+    return results;
   }
 
-  // Get notification statistics
   async getNotificationStats(organizationId: string): Promise<{
     totalSent: number;
     totalRead: number;
@@ -358,23 +308,23 @@ class NotificationService {
     byPriority: Record<string, number>;
   }> {
     try {
-      const q = query(
-        collection(db, this.NOTIFICATIONS_COLLECTION),
-        where('organizationId', '==', organizationId)
-      );
+      const { data, error } = await supabase
+        .from(this.NOTIFICATIONS_TABLE)
+        .select('type, priority, read')
+        .eq('organization_id', organizationId);
 
-      const querySnapshot = await getDocs(q);
-      const notifications = querySnapshot.docs.map(doc => doc.data() as Notification);
+      if (error) throw error;
 
       const stats = {
-        totalSent: notifications.length,
-        totalRead: notifications.filter(n => n.read).length,
-        totalUnread: notifications.filter(n => !n.read).length,
+        totalSent: data.length,
+        totalRead: data.filter(n => n.read).length,
+        totalUnread: data.filter(n => !n.read).length,
         byType: {} as Record<string, number>,
         byPriority: {} as Record<string, number>
       };
 
-      notifications.forEach(notification => {
+      // Count by type
+      data.forEach(notification => {
         stats.byType[notification.type] = (stats.byType[notification.type] || 0) + 1;
         stats.byPriority[notification.priority] = (stats.byPriority[notification.priority] || 0) + 1;
       });
@@ -382,7 +332,7 @@ class NotificationService {
       return stats;
     } catch (error) {
       console.error('Error fetching notification stats:', error);
-      throw new Error('Failed to fetch notification stats');
+      throw error;
     }
   }
 }

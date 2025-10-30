@@ -84,7 +84,7 @@ export default function PayrollProcessing({
         // Mock salary structure - in real app, fetch from service
         const mockSalaryStructure: SalaryStructure = {
           employeeId: employee.id!,
-          effectiveFrom: employee.dateOfJoining,
+          effectiveFrom: employee.dateOfJoining.toDate().toISOString(),
           basicSalary: 50000,
           hra: 20000,
           da: 5000,
@@ -212,8 +212,8 @@ export default function PayrollProcessing({
           salaryStructureId: emp.salaryStructure?.id || '',
           month,
           year,
-          payPeriodStart: new Date(year, month - 1, 1),
-          payPeriodEnd: new Date(year, month, 0),
+          payPeriodStart: new Date(year, month - 1, 1).toISOString(),
+          payPeriodEnd: new Date(year, month, 0).toISOString(),
           workingDays: emp.workingDays,
           presentDays: emp.presentDays,
           absentDays: emp.absentDays,
@@ -291,7 +291,7 @@ export default function PayrollProcessing({
     doc.text(empData.employee.department || 'N/A', 60, 70);
 
     doc.text('Designation:', 20, 80);
-    doc.text(empData.employee.position || 'N/A', 60, 80);
+    doc.text(empData.employee.designation || 'N/A', 60, 80);
 
     // Right column
     doc.text('Pay Period:', 120, 50);
@@ -305,7 +305,7 @@ export default function PayrollProcessing({
 
     doc.text('Date of Joining:', 120, 80);
     const joiningDate = empData.employee.dateOfJoining
-      ? new Date(empData.employee.dateOfJoining.seconds * 1000).toLocaleDateString()
+      ? empData.employee.dateOfJoining.toDate().toLocaleDateString()
       : 'N/A';
     doc.text(joiningDate, 150, 80);
 
@@ -400,9 +400,9 @@ export default function PayrollProcessing({
       ['Employee Name', `${empData.employee.firstName} ${empData.employee.lastName}`],
       ['Employee ID', empData.employee.employeeId || 'N/A'],
       ['Department', empData.employee.department || 'N/A'],
-      ['Position', empData.employee.position || 'N/A'],
+      ['Position', empData.employee.designation || 'N/A'],
       ['Pay Period', `${monthNames[month - 1]} ${year}`],
-      ['Date of Joining', empData.employee.dateOfJoining ? new Date(empData.employee.dateOfJoining.seconds * 1000).toLocaleDateString() : 'N/A'],
+      ['Date of Joining', empData.employee.dateOfJoining ? empData.employee.dateOfJoining.toDate().toLocaleDateString() : 'N/A'],
       ['', ''],
       ['Attendance Details', ''],
       ['Working Days', empData.workingDays],
@@ -453,7 +453,7 @@ export default function PayrollProcessing({
       'Employee Name': `${empData.employee.firstName} ${empData.employee.lastName}`,
       'Employee ID': empData.employee.employeeId || 'N/A',
       'Department': empData.employee.department || 'N/A',
-      'Position': empData.employee.position || 'N/A',
+      'Position': empData.employee.designation || 'N/A',
       'Working Days': empData.workingDays,
       'Present Days': empData.presentDays,
       'Absent Days': empData.absentDays,

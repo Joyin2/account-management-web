@@ -1,9 +1,9 @@
 import { inventoryService, InventoryItem, InventoryFormData } from './inventoryService';
-import { Transaction } from '@/lib/api/transactions';
-import { FirestoreTransaction } from '@/lib/firestore/transactions';
+import { supabase } from '@/lib/supabase';
+import { Transaction } from '@/types/transaction';
 
 // Enhanced transaction interface with optional inventory data
-interface EnhancedTransaction extends FirestoreTransaction {
+interface EnhancedTransaction extends Transaction {
   inventoryData?: {
     sku?: string;
     category?: string;
@@ -49,20 +49,20 @@ class AccountingInventoryIntegration {
 
   /**
    * Create inventory item from accounting "Buy - Inventory" transaction
-   * @param transaction - The Firestore transaction data
+   * @param transaction - The Supabase transaction data
    * @param userId - The user ID
    */
-  async createInventoryFromAccountingTransaction(transaction: FirestoreTransaction, userId: string): Promise<string | null> {
+  async createInventoryFromAccountingTransaction(transaction: Transaction, userId: string): Promise<string | null> {
     try {
       // Only process BUY transactions with inventory subType
-      if (transaction.type !== 'BUY' || transaction.subType !== 'inventory') {
+      if (transaction.type !== 'BUY' || transaction.sub_type !== 'inventory') {
         return null;
       }
 
       // Check if required fields are present
-      if (!transaction.productName || !transaction.quantity || !transaction.price) {
+      if (!transaction.product_name || !transaction.quantity || !transaction.price) {
         console.warn('Missing required fields for inventory creation:', {
-          productName: transaction.productName,
+          productName: transaction.product_name,
           quantity: transaction.quantity,
           price: transaction.price
         });
@@ -72,7 +72,7 @@ class AccountingInventoryIntegration {
       // Use enhanced inventory data if available, otherwise generate defaults
       const enhancedTransaction = transaction as EnhancedTransaction;
       const enhancedData = enhancedTransaction.inventoryData;
-      const sku = enhancedData?.sku || this.generateSkuFromProductName(transaction.productName);
+      const sku = enhancedData?.sku || this.generateSkuFromProductName(transaction.product_name);
       
       // Check if item with this SKU already exists
       const existingItem = await inventoryService.findItemBySku(sku, userId);
@@ -82,7 +82,7 @@ class AccountingInventoryIntegration {
           type: 'in',
           reason: 'Purchase from accounting transaction',
           reference: `TXN-${transaction.id}`,
-          notes: `Vendor: ${transaction.vendorName || 'Unknown'}, Amount: ${transaction.amount}`,
+          notes: `Vendor: ${transaction.vendor_name || 'Unknown'}, Amount: ${transaction.amount}`,
           userId
         });
         return existingItem.id;
@@ -90,20 +90,20 @@ class AccountingInventoryIntegration {
 
       // Create new inventory item with enhanced data if available
       const inventoryData: InventoryFormData = {
-        name: transaction.productName,
+        name: transaction.product_name,
         sku: sku,
         category: enhancedData?.category || 'raw-materials',
-        description: transaction.remarks || `Purchased from ${transaction.vendorName || 'vendor'}`,
+        description: transaction.remarks || `Purchased from ${transaction.vendor_name || 'vendor'}`,
         currentStock: transaction.quantity,
         minimumStock: enhancedData?.minimumStock || Math.max(1, Math.floor(transaction.quantity * 0.1)),
         maximumStock: enhancedData?.maximumStock || transaction.quantity * 5,
         unitPrice: enhancedData?.unitPrice || transaction.price,
         costPrice: transaction.price,
-        supplier: transaction.vendorName || 'Unknown Vendor',
+        supplier: transaction.vendor_name || 'Unknown Vendor',
         location: enhancedData?.location || 'warehouse-a',
         unit: enhancedData?.unit || this.extractUnitFromQuantity(transaction.quantity.toString()) || 'pcs',
         barcode: enhancedData?.barcode,
-        notes: `Created from accounting transaction on ${transaction.date.toDate().toLocaleDateString()}. Payment: ${transaction.paymentMethod}${transaction.gstApplicable ? ', GST applicable' : ''}`
+        notes: `Created from accounting transaction on ${transaction.date.toDate().toLocaleDateString()}. Payment: ${transaction.payment_method}${transaction.gst_applicable ? ', GST applicable' : ''}`
       };
 
       const itemId = await inventoryService.addInventoryItem(inventoryData, userId);
@@ -200,7 +200,7 @@ class AccountingInventoryIntegration {
     }
 
     for (const inventoryItem of inventoryItems) {
-      const isSale = transaction.type === 'income' || transaction.category === 'Sales';
+      const isSale = transaction.type === 'SELL' || transaction.category === 'Sales';
       const quantityChange = isSale ? -inventoryItem.quantity : inventoryItem.quantity;
       const newStock = inventoryItem.item.currentStock + quantityChange;
       
@@ -361,7 +361,7 @@ class AccountingInventoryIntegration {
   async validateInventoryAvailability(transaction: Transaction, userId: string): Promise<ValidationResult> {
     try {
       // Only validate for sales transactions (income type or Sales category)
-      const isSale = transaction.type === 'income' || transaction.category === 'Sales';
+      const isSale = transaction.type === 'SELL' || transaction.category === 'Sales';
       if (!isSale) {
         return { isValid: true, issues: [] };
       }

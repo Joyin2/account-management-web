@@ -1,74 +1,56 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-  writeBatch,
-  limit,
-  increment,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import { notificationService } from './notificationService';
 
 // Employee Interfaces
 export interface Employee {
   id?: string;
   // Personal Information
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
-  dateOfBirth: Timestamp;
+  date_of_birth: string;
   gender: 'male' | 'female' | 'other';
-  maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
+  marital_status: 'single' | 'married' | 'divorced' | 'widowed';
   
   // Address Information
   address: {
     street: string;
     city: string;
     state: string;
-    zipCode: string;
+    zip_code: string;
     country: string;
   };
   
   // Employment Information
-  employeeId: string; // Unique employee identifier
+  employee_id: string; // Unique employee identifier
   department: string;
   designation: string;
-  employmentType: 'full-time' | 'part-time' | 'contract' | 'intern';
-  workLocation: 'office' | 'remote' | 'hybrid';
-  reportingManager?: string; // Employee ID of manager
+  employment_type: 'full-time' | 'part-time' | 'contract' | 'intern';
+  work_location: 'office' | 'remote' | 'hybrid';
+  reporting_manager?: string; // Employee ID of manager
   
   // Dates
-  dateOfJoining: Timestamp;
-  dateOfTermination?: Timestamp;
-  probationEndDate?: Timestamp;
+  date_of_joining: string;
+  date_of_termination?: string;
+  probation_end_date?: string;
   
   // Status
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   
-  // Documents
+  // Documents and Personal Details
   documents: {
-    aadharNumber?: string;
-    panNumber?: string;
-    passportNumber?: string;
-    drivingLicense?: string;
-    bankAccount: {
-      accountNumber: string;
-      bankName: string;
-      ifscCode: string;
-      accountHolderName: string;
+    aadhar_number?: string;
+    pan_number?: string;
+    passport_number?: string;
+    driving_license?: string;
+    bank_account: {
+      account_number: string;
+      bank_name: string;
+      ifsc_code: string;
+      account_holder_name: string;
     };
-    emergencyContact: {
+    emergency_contact: {
       name: string;
       relationship: string;
       phone: string;
@@ -76,98 +58,98 @@ export interface Employee {
     };
   };
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  createdBy: string;
-  updatedBy: string;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by: string;
 }
 
 // Salary Structure Interface
 export interface SalaryStructure {
   id?: string;
-  employeeId: string;
-  effectiveFrom: Timestamp;
-  effectiveTo?: Timestamp;
+  employee_id: string;
+  effective_from: string;
+  effective_to?: string;
   
-  // Basic Components
-  basicSalary: number;
+  // Salary Components
+  basic_salary: number;
   hra: number; // House Rent Allowance
   da: number; // Dearness Allowance
-  conveyanceAllowance: number;
-  medicalAllowance: number;
-  specialAllowance: number;
+  conveyance_allowance: number;
+  medical_allowance: number;
+  special_allowance: number;
   
   // Deductions
   pf: number; // Provident Fund
   esi: number; // Employee State Insurance
-  professionalTax: number;
-  incomeTax: number;
+  professional_tax: number;
+  income_tax: number;
   
-  // Calculated fields
-  grossSalary: number;
-  totalDeductions: number;
-  netSalary: number;
+  // Calculated Fields
+  gross_salary: number;
+  total_deductions: number;
+  net_salary: number;
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  isActive: boolean;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
 }
 
 // Payroll Interface
 export interface Payroll {
   id?: string;
-  employeeId: string;
-  salaryStructureId: string;
+  employee_id: string;
+  salary_structure_id: string;
   
-  // Period
+  // Pay Period
   month: number; // 1-12
   year: number;
-  payPeriodStart: Timestamp;
-  payPeriodEnd: Timestamp;
+  pay_period_start: string;
+  pay_period_end: string;
   
-  // Attendance data
-  workingDays: number;
-  presentDays: number;
-  absentDays: number;
-  halfDays: number;
-  overtimeHours: number;
+  // Attendance Data
+  working_days: number;
+  present_days: number;
+  absent_days: number;
+  half_days: number;
+  overtime_hours: number;
   
-  // Salary calculations
-  basicSalary: number;
+  // Earnings
+  basic_salary: number;
   allowances: number;
-  overtimePay: number;
+  overtime_pay: number;
   bonuses: number;
-  grossPay: number;
+  gross_pay: number;
   
   // Deductions
   pf: number;
   esi: number;
-  professionalTax: number;
-  incomeTax: number;
-  loanDeductions: number;
-  otherDeductions: number;
-  totalDeductions: number;
+  professional_tax: number;
+  income_tax: number;
+  loan_deductions: number;
+  other_deductions: number;
+  total_deductions: number;
   
-  // Final amount
-  netPay: number;
+  // Net Pay
+  net_pay: number;
   
   // Status
   status: 'draft' | 'processed' | 'paid' | 'cancelled';
-  processedDate?: Timestamp;
-  paidDate?: Timestamp;
+  processed_date?: string;
+  paid_date?: string;
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  processedBy?: string;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  processed_by?: string;
 }
 
 // Leave Type Interface
@@ -176,92 +158,92 @@ export interface LeaveType {
   name: string;
   code: string;
   description?: string;
-  maxDaysPerYear: number;
-  carryForward: boolean;
-  maxCarryForwardDays: number;
+  max_days_per_year: number;
+  carry_forward: boolean;
+  max_carry_forward_days: number;
   encashable: boolean;
-  applicableAfterDays: number; // Days after joining when leave becomes applicable
+  applicable_after_days: number; // Days after joining when leave becomes applicable
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  isActive: boolean;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
 }
 
 // Leave Balance Interface
 export interface LeaveBalance {
   id?: string;
-  employeeId: string;
-  leaveTypeId: string;
+  employee_id: string;
+  leave_type_id: string;
   year: number;
   
-  // Balance details
-  totalEntitled: number;
+  // Balance Details
+  total_entitled: number;
   used: number;
   pending: number; // Applied but not approved
   available: number;
-  carriedForward: number;
+  carried_forward: number;
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Leave Application Interface
 export interface LeaveApplication {
   id?: string;
-  employeeId: string;
-  leaveTypeId: string;
+  employee_id: string;
+  leave_type_id: string;
   
-  // Leave details
-  startDate: Timestamp;
-  endDate: Timestamp;
-  totalDays: number;
-  halfDay: boolean;
+  // Leave Details
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  half_day: boolean;
   reason: string;
   
-  // Approval workflow
+  // Approval Details
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  appliedDate: Timestamp;
-  approvedBy?: string;
-  approvedDate?: Timestamp;
-  rejectionReason?: string;
+  applied_date: string;
+  approved_by?: string;
+  approved_date?: string;
+  rejection_reason?: string;
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Attendance Interface
 export interface Attendance {
   id?: string;
-  employeeId: string;
-  date: Timestamp;
+  employee_id: string;
+  date: string;
   
-  // Time tracking
-  checkInTime?: Timestamp;
-  checkOutTime?: Timestamp;
-  totalHours: number;
-  overtimeHours: number;
+  // Time Details
+  check_in_time?: string;
+  check_out_time?: string;
+  total_hours: number;
+  overtime_hours: number;
   
   // Status
   status: 'present' | 'absent' | 'half-day' | 'late' | 'on-leave';
-  isLate: boolean;
-  lateMinutes: number;
+  is_late: boolean;
+  late_minutes: number;
   
-  // Location (if applicable)
-  checkInLocation?: {
+  // Location Details
+  check_in_location?: {
     latitude: number;
     longitude: number;
     address: string;
   };
-  checkOutLocation?: {
+  check_out_location?: {
     latitude: number;
     longitude: number;
     address: string;
@@ -270,768 +252,538 @@ export interface Attendance {
   // Notes
   notes?: string;
   
-  // System fields
-  userId: string;
-  organizationId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  // Metadata
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// Collections
-const EMPLOYEES_COLLECTION = 'employees';
-const SALARY_STRUCTURES_COLLECTION = 'salaryStructures';
-const PAYROLLS_COLLECTION = 'payrolls';
-const LEAVE_TYPES_COLLECTION = 'leaveTypes';
-const LEAVE_BALANCES_COLLECTION = 'leaveBalances';
-const LEAVE_APPLICATIONS_COLLECTION = 'leaveApplications';
-const ATTENDANCE_COLLECTION = 'attendance';
-
-// Employee Service Functions
 export const employeeService = {
-  // Employee CRUD Operations
-  async createEmployee(employeeData: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Employee Management
+  async createEmployee(employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const employee: Omit<Employee, 'id'> = {
+      const now = new Date().toISOString();
+      const employee = {
         ...employeeData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
-      
-      const docRef = await addDoc(collection(db, EMPLOYEES_COLLECTION), employee);
-      return docRef.id;
+
+      const { data, error } = await supabase
+        .from('employees')
+        .insert(employee)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Send notification
+      await notificationService.sendNotification({
+        type: 'employee_created',
+        title: 'New Employee Added',
+        message: `Employee ${employeeData.first_name} ${employeeData.last_name} has been added to the system.`,
+        user_id: employeeData.user_id,
+        organization_id: employeeData.organization_id
+      });
+
+      return data.id;
     } catch (error) {
       console.error('Error creating employee:', error);
-      throw new Error('Failed to create employee');
+      throw error;
     }
   },
 
   async getEmployees(organizationId: string): Promise<Employee[]> {
     try {
-      // Try the optimized query first
-      const q = query(
-        collection(db, EMPLOYEES_COLLECTION),
-        where('organizationId', '==', organizationId),
-        orderBy('firstName', 'asc')
-      );
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('first_name');
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Employee));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      console.error('Error fetching employees with orderBy:', error);
-
-      // Fallback to simple query without orderBy if index not ready
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
-        console.log('Index not ready, using fallback query for employees...');
-        try {
-          const fallbackQuery = query(
-            collection(db, EMPLOYEES_COLLECTION),
-            where('organizationId', '==', organizationId)
-          );
-
-          const querySnapshot = await getDocs(fallbackQuery);
-          const employees = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as Employee));
-
-          // Sort manually since we can't use orderBy
-          employees.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-          return employees;
-        } catch (fallbackError) {
-          console.error('Error with fallback employee query:', fallbackError);
-          throw new Error('Failed to fetch employees');
-        }
-      } else {
-        throw new Error('Failed to fetch employees');
-      }
+      console.error('Error fetching employees:', error);
+      throw error;
     }
   },
 
-  // Real-time subscription for employees
   subscribeToEmployees(organizationId: string, callback: (employees: Employee[]) => void): () => void {
-    if (!organizationId) {
-      console.error('Organization ID is required for employees subscription');
-      return () => {}; // Return empty unsubscribe function
-    }
+    const subscription = supabase
+      .channel('employees')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'employees',
+          filter: `organization_id=eq.${organizationId}`
+        }, 
+        () => {
+          // Refetch employees when changes occur
+          this.getEmployees(organizationId).then(callback);
+        }
+      )
+      .subscribe();
 
-    const q = query(
-      collection(db, EMPLOYEES_COLLECTION),
-      where('organizationId', '==', organizationId),
-      orderBy('firstName', 'asc')
-    );
-
-    return onSnapshot(q, (querySnapshot) => {
-      const employees = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Employee));
-      callback(employees);
-    }, (error) => {
-      console.error('Error in employees subscription:', error);
-    });
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   },
 
   async getEmployee(employeeId: string): Promise<Employee | null> {
     try {
-      const docRef = doc(db, EMPLOYEES_COLLECTION, employeeId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Employee;
-      }
-      return null;
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', employeeId)
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error fetching employee:', error);
-      throw new Error('Failed to fetch employee');
+      return null;
     }
   },
 
   async updateEmployee(employeeId: string, updates: Partial<Employee>): Promise<void> {
     try {
-      const docRef = doc(db, EMPLOYEES_COLLECTION, employeeId);
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', employeeId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating employee:', error);
-      throw new Error('Failed to update employee');
+      throw error;
     }
   },
 
   async deleteEmployee(employeeId: string): Promise<void> {
     try {
-      const docRef = doc(db, EMPLOYEES_COLLECTION, employeeId);
-      await deleteDoc(docRef);
+      const { error } = await supabase
+        .from('employees')
+        .update({ status: 'terminated' })
+        .eq('id', employeeId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error deleting employee:', error);
-      throw new Error('Failed to delete employee');
+      throw error;
     }
   },
 
-  // Salary Structure Operations
-  async createSalaryStructure(salaryData: Omit<SalaryStructure, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Salary Structure Management
+  async createSalaryStructure(salaryData: Omit<SalaryStructure, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const salaryStructure: Omit<SalaryStructure, 'id'> = {
+      const now = new Date().toISOString();
+      const salaryStructure = {
         ...salaryData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, SALARY_STRUCTURES_COLLECTION), salaryStructure);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('salary_structures')
+        .insert(salaryStructure)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating salary structure:', error);
-      throw new Error('Failed to create salary structure');
+      throw error;
     }
   },
 
   async getSalaryStructures(employeeId: string): Promise<SalaryStructure[]> {
     try {
-      const q = query(
-        collection(db, SALARY_STRUCTURES_COLLECTION),
-        where('employeeId', '==', employeeId),
-        orderBy('effectiveFrom', 'desc')
-      );
+      const { data, error } = await supabase
+        .from('salary_structures')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('effective_from', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SalaryStructure));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching salary structures:', error);
-      throw new Error('Failed to fetch salary structures');
+      throw error;
     }
   },
 
   async getAllSalaryStructures(organizationId: string): Promise<SalaryStructure[]> {
     try {
-      // Try the optimized query first
-      const q = query(
-        collection(db, SALARY_STRUCTURES_COLLECTION),
-        where('organizationId', '==', organizationId),
-        orderBy('effectiveFrom', 'desc')
-      );
+      const { data, error } = await supabase
+        .from('salary_structures')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('effective_from', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SalaryStructure));
-    } catch (error: any) {
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
       console.error('Error fetching all salary structures:', error);
-
-      // If it's an index error, try fallback query
-      const isIndexError = error.code === 'failed-precondition' &&
-        (error.message.includes('index') ||
-         error.message.includes('building') ||
-         error.message.includes('cannot be used yet'));
-
-      if (isIndexError) {
-        console.log('Index not ready (building or missing), trying fallback query for salary structures...');
-        try {
-          const fallbackQuery = query(
-            collection(db, SALARY_STRUCTURES_COLLECTION),
-            where('organizationId', '==', organizationId)
-          );
-
-          const fallbackSnapshot = await getDocs(fallbackQuery);
-          const salaryStructures = fallbackSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as SalaryStructure));
-
-          // Sort manually by effectiveFrom date
-          return salaryStructures.sort((a, b) => {
-            const dateA = a.effectiveFrom instanceof Date ? a.effectiveFrom : new Date(a.effectiveFrom.seconds * 1000);
-            const dateB = b.effectiveFrom instanceof Date ? b.effectiveFrom : new Date(b.effectiveFrom.seconds * 1000);
-            return dateB.getTime() - dateA.getTime();
-          });
-        } catch (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          return [];
-        }
-      }
-
-      return [];
+      throw error;
     }
   },
 
   async getActiveSalaryStructure(employeeId: string): Promise<SalaryStructure | null> {
     try {
-      const q = query(
-        collection(db, SALARY_STRUCTURES_COLLECTION),
-        where('employeeId', '==', employeeId),
-        where('isActive', '==', true)
-      );
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('salary_structures')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('is_active', true)
+        .lte('effective_from', currentDate)
+        .or(`effective_to.is.null,effective_to.gte.${currentDate}`)
+        .order('effective_from', { ascending: false })
+        .limit(1)
+        .single();
 
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        return { id: doc.id, ...doc.data() } as SalaryStructure;
-      }
-      return null;
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error fetching active salary structure:', error);
-      throw new Error('Failed to fetch active salary structure');
+      return null;
     }
   },
 
-  // Payroll Operations
-  async createPayroll(payrollData: Omit<Payroll, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Payroll Management
+  async createPayroll(payrollData: Omit<Payroll, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const payroll: Omit<Payroll, 'id'> = {
+      const now = new Date().toISOString();
+      const payroll = {
         ...payrollData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, PAYROLLS_COLLECTION), payroll);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('payrolls')
+        .insert(payroll)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating payroll:', error);
-      throw new Error('Failed to create payroll');
+      throw error;
     }
   },
 
-  // Batch payroll processing
-  async createBatchPayroll(payrollsData: Omit<Payroll, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<string[]> {
+  async createBatchPayroll(payrollsData: Omit<Payroll, 'id' | 'created_at' | 'updated_at'>[]): Promise<string[]> {
     try {
-      const batch = writeBatch(db);
-      const now = Timestamp.now();
-      const docIds: string[] = [];
-      const payrollsWithIds: Payroll[] = [];
+      const now = new Date().toISOString();
+      const payrolls = payrollsData.map(payroll => ({
+        ...payroll,
+        created_at: now,
+        updated_at: now
+      }));
 
-      payrollsData.forEach((payrollData) => {
-        const docRef = doc(collection(db, PAYROLLS_COLLECTION));
-        const payroll: Omit<Payroll, 'id'> = {
-          ...payrollData,
-          createdAt: now,
-          updatedAt: now
-        };
-        batch.set(docRef, payroll);
-        docIds.push(docRef.id);
-        payrollsWithIds.push({ ...payroll, id: docRef.id });
-      });
+      const { data, error } = await supabase
+        .from('payrolls')
+        .insert(payrolls)
+        .select('id');
 
-      await batch.commit();
-
-      // Send notifications to employees about payroll processing
-      const notificationPromises = payrollsWithIds.map(payroll =>
-        notificationService.notifyPayrollProcessed(
-          payroll.employeeId,
-          payroll.organizationId,
-          payroll
-        )
-      );
-
-      await Promise.all(notificationPromises);
-
-      return docIds;
+      if (error) throw error;
+      return data.map(item => item.id);
     } catch (error) {
       console.error('Error creating batch payroll:', error);
-      throw new Error('Failed to create batch payroll');
+      throw error;
     }
   },
 
   async getPayrolls(organizationId: string, month?: number, year?: number): Promise<Payroll[]> {
     try {
-      let q = query(
-        collection(db, PAYROLLS_COLLECTION),
-        where('organizationId', '==', organizationId)
-      );
+      let query = supabase
+        .from('payrolls')
+        .select('*')
+        .eq('organization_id', organizationId);
 
-      if (month && year) {
-        q = query(q, where('month', '==', month), where('year', '==', year));
+      if (month !== undefined) {
+        query = query.eq('month', month);
+      }
+      if (year !== undefined) {
+        query = query.eq('year', year);
       }
 
-      q = query(q, orderBy('createdAt', 'desc'));
+      const { data, error } = await query.order('created_at', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Payroll));
-    } catch (error: any) {
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
       console.error('Error fetching payrolls:', error);
-
-      // Check for index-related errors (building, missing, etc.)
-      const isIndexError = error.code === 'failed-precondition' &&
-        (error.message.includes('index') ||
-         error.message.includes('building') ||
-         error.message.includes('cannot be used yet') ||
-         error.message.includes('currently building'));
-
-      if (isIndexError) {
-        console.log('Index not ready for payrolls, trying fallback queries...');
-
-        // Try fallback 1: Remove orderBy
-        try {
-          let fallbackQuery1 = query(
-            collection(db, PAYROLLS_COLLECTION),
-            where('organizationId', '==', organizationId)
-          );
-
-          if (month && year) {
-            fallbackQuery1 = query(fallbackQuery1, where('month', '==', month), where('year', '==', year));
-          }
-
-          const fallbackSnapshot1 = await getDocs(fallbackQuery1);
-          const payrolls1 = fallbackSnapshot1.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as Payroll));
-
-          console.log('Fallback query 1 successful for payrolls, sorting manually');
-          return payrolls1.sort((a, b) => {
-            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt.seconds * 1000);
-            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt.seconds * 1000);
-            return dateB.getTime() - dateA.getTime();
-          });
-        } catch (fallbackError1) {
-          console.error('Fallback query 1 failed for payrolls:', fallbackError1);
-
-          // Try fallback 2: Only organizationId filter
-          try {
-            const fallbackQuery2 = query(
-              collection(db, PAYROLLS_COLLECTION),
-              where('organizationId', '==', organizationId)
-            );
-
-            const fallbackSnapshot2 = await getDocs(fallbackQuery2);
-            const allPayrolls = fallbackSnapshot2.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as Payroll));
-
-            console.log('Fallback query 2 successful for payrolls, filtering and sorting manually');
-            let filteredPayrolls = allPayrolls;
-
-            // Filter by month and year if specified
-            if (month && year) {
-              filteredPayrolls = allPayrolls.filter(p => p.month === month && p.year === year);
-            }
-
-            // Sort manually by createdAt
-            return filteredPayrolls.sort((a, b) => {
-              const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt.seconds * 1000);
-              const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt.seconds * 1000);
-              return dateB.getTime() - dateA.getTime();
-            });
-          } catch (fallbackError2) {
-            console.error('All fallback queries failed for payrolls:', fallbackError2);
-            return [];
-          }
-        }
-      }
-
-      // For other errors, return empty array
-      console.error('Non-index error for payrolls, returning empty array');
-      return [];
+      throw error;
     }
   },
 
   async getEmployeePayrolls(employeeId: string): Promise<Payroll[]> {
     try {
-      const q = query(
-        collection(db, PAYROLLS_COLLECTION),
-        where('employeeId', '==', employeeId),
-        orderBy('year', 'desc'),
-        orderBy('month', 'desc')
-      );
+      const { data, error } = await supabase
+        .from('payrolls')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Payroll));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching employee payrolls:', error);
-      throw new Error('Failed to fetch employee payrolls');
+      throw error;
     }
   },
 
-  // Leave Type Operations
-  async createLeaveType(leaveTypeData: Omit<LeaveType, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Leave Type Management
+  async createLeaveType(leaveTypeData: Omit<LeaveType, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const leaveType: Omit<LeaveType, 'id'> = {
+      const now = new Date().toISOString();
+      const leaveType = {
         ...leaveTypeData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, LEAVE_TYPES_COLLECTION), leaveType);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('leave_types')
+        .insert(leaveType)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating leave type:', error);
-      throw new Error('Failed to create leave type');
+      throw error;
     }
   },
 
   async getLeaveTypes(organizationId: string): Promise<LeaveType[]> {
     try {
-      // Try the optimized query first
-      const q = query(
-        collection(db, LEAVE_TYPES_COLLECTION),
-        where('organizationId', '==', organizationId),
-        where('isActive', '==', true),
-        orderBy('name', 'asc')
-      );
+      const { data, error } = await supabase
+        .from('leave_types')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('name');
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as LeaveType));
-    } catch (error: any) {
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
       console.error('Error fetching leave types:', error);
-
-      // Check for index-related errors (building, missing, etc.)
-      const isIndexError = error.code === 'failed-precondition' &&
-        (error.message.includes('index') ||
-         error.message.includes('building') ||
-         error.message.includes('cannot be used yet'));
-
-      if (isIndexError) {
-        console.log('Index not ready (building or missing), trying fallback queries...');
-
-        // Try fallback 1: Remove orderBy
-        try {
-          const fallbackQuery1 = query(
-            collection(db, LEAVE_TYPES_COLLECTION),
-            where('organizationId', '==', organizationId),
-            where('isActive', '==', true)
-          );
-
-          const fallbackSnapshot1 = await getDocs(fallbackQuery1);
-          const leaveTypes1 = fallbackSnapshot1.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as LeaveType));
-
-          console.log('Fallback query 1 successful, sorting manually');
-          return leaveTypes1.sort((a, b) => a.name.localeCompare(b.name));
-        } catch (fallbackError1) {
-          console.error('Fallback query 1 failed:', fallbackError1);
-
-          // Try fallback 2: Only organizationId filter
-          try {
-            const fallbackQuery2 = query(
-              collection(db, LEAVE_TYPES_COLLECTION),
-              where('organizationId', '==', organizationId)
-            );
-
-            const fallbackSnapshot2 = await getDocs(fallbackQuery2);
-            const allLeaveTypes = fallbackSnapshot2.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as LeaveType));
-
-            console.log('Fallback query 2 successful, filtering and sorting manually');
-            return allLeaveTypes
-              .filter(lt => lt.isActive)
-              .sort((a, b) => a.name.localeCompare(b.name));
-          } catch (fallbackError2) {
-            console.error('Fallback query 2 failed:', fallbackError2);
-
-            // Try fallback 3: Get all documents and filter manually
-            try {
-              const allDocsSnapshot = await getDocs(collection(db, LEAVE_TYPES_COLLECTION));
-              const allDocs = allDocsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              } as LeaveType));
-
-              console.log('Fallback query 3 successful, filtering by organization and active status');
-              return allDocs
-                .filter(lt => lt.organizationId === organizationId && lt.isActive)
-                .sort((a, b) => a.name.localeCompare(b.name));
-            } catch (fallbackError3) {
-              console.error('All fallback queries failed:', fallbackError3);
-              return [];
-            }
-          }
-        }
-      }
-
-      // For other errors, return empty array
-      console.error('Non-index error, returning empty array');
-      return [];
+      throw error;
     }
   },
 
-  // Leave Balance Operations
+  // Leave Balance Management
   async getLeaveBalances(employeeId: string, year: number): Promise<LeaveBalance[]> {
     try {
-      const q = query(
-        collection(db, LEAVE_BALANCES_COLLECTION),
-        where('employeeId', '==', employeeId),
-        where('year', '==', year)
-      );
+      const { data, error } = await supabase
+        .from('leave_balances')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('year', year);
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as LeaveBalance));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching leave balances:', error);
-      throw new Error('Failed to fetch leave balances');
+      throw error;
     }
   },
 
-  async createLeaveBalance(balanceData: Omit<LeaveBalance, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async createLeaveBalance(balanceData: Omit<LeaveBalance, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const leaveBalance: Omit<LeaveBalance, 'id'> = {
+      const now = new Date().toISOString();
+      const leaveBalance = {
         ...balanceData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, LEAVE_BALANCES_COLLECTION), leaveBalance);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('leave_balances')
+        .insert(leaveBalance)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating leave balance:', error);
-      throw new Error('Failed to create leave balance');
+      throw error;
     }
   },
 
   async updateLeaveBalance(balanceId: string, updates: Partial<LeaveBalance>): Promise<void> {
     try {
-      const docRef = doc(db, LEAVE_BALANCES_COLLECTION, balanceId);
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
+      const { error } = await supabase
+        .from('leave_balances')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', balanceId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating leave balance:', error);
-      throw new Error('Failed to update leave balance');
+      throw error;
     }
   },
 
-  // Leave Application Operations
-  async createLeaveApplication(leaveData: Omit<LeaveApplication, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Leave Application Management
+  async createLeaveApplication(leaveData: Omit<LeaveApplication, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const leaveApplication: Omit<LeaveApplication, 'id'> = {
+      const now = new Date().toISOString();
+      const leaveApplication = {
         ...leaveData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, LEAVE_APPLICATIONS_COLLECTION), leaveApplication);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('leave_applications')
+        .insert(leaveApplication)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating leave application:', error);
-      throw new Error('Failed to create leave application');
+      throw error;
     }
   },
 
   async getLeaveApplications(organizationId: string, status?: string): Promise<LeaveApplication[]> {
     try {
-      let q = query(
-        collection(db, LEAVE_APPLICATIONS_COLLECTION),
-        where('organizationId', '==', organizationId)
-      );
+      let query = supabase
+        .from('leave_applications')
+        .select('*')
+        .eq('organization_id', organizationId);
 
       if (status) {
-        q = query(q, where('status', '==', status));
+        query = query.eq('status', status);
       }
 
-      q = query(q, orderBy('appliedDate', 'desc'));
+      const { data, error } = await query.order('created_at', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as LeaveApplication));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      console.error('Error fetching leave applications with orderBy:', error);
-
-      // Fallback to simple query without orderBy if index not ready
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
-        console.log('Index not ready, using fallback query for leave applications...');
-        try {
-          let fallbackQuery = query(
-            collection(db, LEAVE_APPLICATIONS_COLLECTION),
-            where('organizationId', '==', organizationId)
-          );
-
-          if (status) {
-            fallbackQuery = query(fallbackQuery, where('status', '==', status));
-          }
-
-          const querySnapshot = await getDocs(fallbackQuery);
-          const applications = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as LeaveApplication));
-
-          // Sort manually since we can't use orderBy
-          applications.sort((a, b) => {
-            const dateA = a.appliedDate instanceof Date
-              ? a.appliedDate
-              : a.appliedDate.toDate ? a.appliedDate.toDate()
-              : new Date(a.appliedDate);
-            const dateB = b.appliedDate instanceof Date
-              ? b.appliedDate
-              : b.appliedDate.toDate ? b.appliedDate.toDate()
-              : new Date(b.appliedDate);
-            return dateB.getTime() - dateA.getTime();
-          });
-
-          return applications;
-        } catch (fallbackError) {
-          console.error('Error with fallback leave applications query:', fallbackError);
-          throw new Error('Failed to fetch leave applications');
-        }
-      } else {
-        throw new Error('Failed to fetch leave applications');
-      }
+      console.error('Error fetching leave applications:', error);
+      throw error;
     }
   },
 
   async updateLeaveApplication(applicationId: string, updates: Partial<LeaveApplication>): Promise<void> {
     try {
-      // Get the current leave application first
-      const docRef = doc(db, LEAVE_APPLICATIONS_COLLECTION, applicationId);
-      const docSnap = await getDoc(docRef);
+      const { error } = await supabase
+        .from('leave_applications')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', applicationId);
 
-      if (!docSnap.exists()) {
-        throw new Error('Leave application not found');
-      }
+      if (error) throw error;
 
-      const leaveApplication = { id: docSnap.id, ...docSnap.data() } as LeaveApplication;
+      // Send notification for status changes
+      if (updates.status) {
+        const { data: application } = await supabase
+          .from('leave_applications')
+          .select('employee_id, organization_id')
+          .eq('id', applicationId)
+          .single();
 
-      // Update the leave application
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
-
-      // Send notifications based on status change
-      if (updates.status === 'approved') {
-        await notificationService.notifyLeaveApproval(
-          leaveApplication.employeeId,
-          leaveApplication.organizationId,
-          leaveApplication
-        );
-      } else if (updates.status === 'rejected') {
-        await notificationService.notifyLeaveRejection(
-          leaveApplication.employeeId,
-          leaveApplication.organizationId,
-          leaveApplication,
-          updates.rejectionReason
-        );
+        if (application) {
+          await notificationService.sendNotification({
+            type: 'leave_status_updated',
+            title: 'Leave Application Updated',
+            message: `Your leave application status has been updated to ${updates.status}.`,
+            user_id: application.employee_id,
+            organization_id: application.organization_id
+          });
+        }
       }
     } catch (error) {
       console.error('Error updating leave application:', error);
-      throw new Error('Failed to update leave application');
+      throw error;
     }
   },
 
-  // Attendance Operations
-  async createAttendance(attendanceData: Omit<Attendance, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Attendance Management
+  async createAttendance(attendanceData: Omit<Attendance, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     try {
-      const now = Timestamp.now();
-      const attendance: Omit<Attendance, 'id'> = {
+      const now = new Date().toISOString();
+      const attendance = {
         ...attendanceData,
-        createdAt: now,
-        updatedAt: now
+        created_at: now,
+        updated_at: now
       };
 
-      const docRef = await addDoc(collection(db, ATTENDANCE_COLLECTION), attendance);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('attendance')
+        .insert(attendance)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error creating attendance:', error);
-      throw new Error('Failed to create attendance');
+      throw error;
     }
   },
 
-  async getAttendance(employeeId: string, startDate: Timestamp, endDate: Timestamp): Promise<Attendance[]> {
+  async getAttendance(employeeId: string, startDate: string, endDate: string): Promise<Attendance[]> {
     try {
-      const q = query(
-        collection(db, ATTENDANCE_COLLECTION),
-        where('employeeId', '==', employeeId),
-        where('date', '>=', startDate),
-        where('date', '<=', endDate),
-        orderBy('date', 'desc')
-      );
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Attendance));
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('Error fetching attendance:', error);
-      throw new Error('Failed to fetch attendance');
+      throw error;
     }
   },
 
   async updateAttendance(attendanceId: string, updates: Partial<Attendance>): Promise<void> {
     try {
-      const docRef = doc(db, ATTENDANCE_COLLECTION, attendanceId);
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: Timestamp.now()
-      });
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', attendanceId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating attendance:', error);
-      throw new Error('Failed to update attendance');
+      throw error;
     }
   },
 
-  // Utility Functions
+  // Analytics and Statistics
   async getEmployeeStats(organizationId: string): Promise<{
     totalEmployees: number;
     activeEmployees: number;
@@ -1039,125 +791,113 @@ export const employeeService = {
     newJoinersThisMonth: number;
   }> {
     try {
-      const employees = await this.getEmployees(organizationId);
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('status, date_of_joining')
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+
+      const totalEmployees = employees.length;
+      const activeEmployees = employees.filter(emp => emp.status === 'active').length;
+      const onLeaveEmployees = employees.filter(emp => emp.status === 'on-leave').length;
+      
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const newJoinersThisMonth = employees.filter(emp => {
+        const joinDate = new Date(emp.date_of_joining);
+        return joinDate.getMonth() + 1 === currentMonth && joinDate.getFullYear() === currentYear;
+      }).length;
 
       return {
-        totalEmployees: employees.length,
-        activeEmployees: employees.filter(emp => emp.status === 'active').length,
-        onLeaveEmployees: employees.filter(emp => emp.status === 'on-leave').length,
-        newJoinersThisMonth: employees.filter(emp => {
-          if (!emp.dateOfJoining) return false;
-          const joiningDate = emp.dateOfJoining instanceof Date
-            ? emp.dateOfJoining
-            : emp.dateOfJoining.toDate ? emp.dateOfJoining.toDate()
-            : new Date(emp.dateOfJoining);
-          return joiningDate >= startOfMonth;
-        }).length
+        totalEmployees,
+        activeEmployees,
+        onLeaveEmployees,
+        newJoinersThisMonth
       };
     } catch (error) {
       console.error('Error fetching employee stats:', error);
-      throw new Error('Failed to fetch employee stats');
+      return {
+        totalEmployees: 0,
+        activeEmployees: 0,
+        onLeaveEmployees: 0,
+        newJoinersThisMonth: 0
+      };
     }
   },
 
-  // Real-time subscriptions for other entities
+  // Real-time Subscriptions
   subscribeToLeaveApplications(organizationId: string, callback: (applications: LeaveApplication[]) => void): () => void {
-    const q = query(
-      collection(db, LEAVE_APPLICATIONS_COLLECTION),
-      where('organizationId', '==', organizationId),
-      orderBy('appliedDate', 'desc')
-    );
+    const subscription = supabase
+      .channel('leave_applications')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'leave_applications',
+          filter: `organization_id=eq.${organizationId}`
+        }, 
+        () => {
+          this.getLeaveApplications(organizationId).then(callback);
+        }
+      )
+      .subscribe();
 
-    return onSnapshot(q, (querySnapshot) => {
-      const applications = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as LeaveApplication));
-      callback(applications);
-    }, (error) => {
-      console.error('Error in leave applications subscription:', error);
-
-      // Fallback to simple query without orderBy if index not ready
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
-        console.log('Index not ready, using fallback query for leave applications subscription...');
-        const fallbackQuery = query(
-          collection(db, LEAVE_APPLICATIONS_COLLECTION),
-          where('organizationId', '==', organizationId)
-        );
-
-        return onSnapshot(fallbackQuery, (querySnapshot) => {
-          const applications = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as LeaveApplication));
-
-          // Sort manually since we can't use orderBy
-          applications.sort((a, b) => {
-            const dateA = a.appliedDate instanceof Date
-              ? a.appliedDate
-              : a.appliedDate.toDate ? a.appliedDate.toDate()
-              : new Date(a.appliedDate);
-            const dateB = b.appliedDate instanceof Date
-              ? b.appliedDate
-              : b.appliedDate.toDate ? b.appliedDate.toDate()
-              : new Date(b.appliedDate);
-            return dateB.getTime() - dateA.getTime();
-          });
-
-          callback(applications);
-        }, (fallbackError) => {
-          console.error('Error in fallback leave applications subscription:', fallbackError);
-        });
-      }
-    });
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   },
 
   subscribeToAttendance(organizationId: string, date: Date, callback: (attendance: Attendance[]) => void): () => void {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    const subscription = supabase
+      .channel('attendance')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'attendance',
+          filter: `organization_id=eq.${organizationId}`
+        }, 
+        () => {
+          supabase
+            .from('attendance')
+            .select('*')
+            .eq('organization_id', organizationId)
+            .eq('date', dateStr)
+            .then(({ data }) => callback(data || []));
+        }
+      )
+      .subscribe();
 
-    const q = query(
-      collection(db, ATTENDANCE_COLLECTION),
-      where('organizationId', '==', organizationId),
-      where('date', '>=', Timestamp.fromDate(startOfDay)),
-      where('date', '<=', Timestamp.fromDate(endOfDay))
-    );
-
-    return onSnapshot(q, (querySnapshot) => {
-      const attendance = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Attendance));
-      callback(attendance);
-    }, (error) => {
-      console.error('Error in attendance subscription:', error);
-    });
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   },
 
   subscribeToPayrolls(organizationId: string, month: number, year: number, callback: (payrolls: Payroll[]) => void): () => void {
-    const q = query(
-      collection(db, PAYROLLS_COLLECTION),
-      where('organizationId', '==', organizationId),
-      where('month', '==', month),
-      where('year', '==', year)
-    );
+    const subscription = supabase
+      .channel('payrolls')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'payrolls',
+          filter: `organization_id=eq.${organizationId}`
+        }, 
+        () => {
+          this.getPayrolls(organizationId, month, year).then(callback);
+        }
+      )
+      .subscribe();
 
-    return onSnapshot(q, (querySnapshot) => {
-      const payrolls = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Payroll));
-      callback(payrolls);
-    }, (error) => {
-      console.error('Error in payrolls subscription:', error);
-    });
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   },
 
-  // Advanced analytics functions
+  // Advanced Analytics
   async getEmployeeAnalytics(organizationId: string): Promise<{
     departmentDistribution: { [key: string]: number };
     salaryDistribution: { range: string; count: number }[];
@@ -1165,67 +905,77 @@ export const employeeService = {
     leaveUtilization: number;
   }> {
     try {
-      const employees = await this.getEmployees(organizationId);
-      const currentMonth = new Date().getMonth() + 1;
-      const currentYear = new Date().getFullYear();
+      // Get department distribution
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('department')
+        .eq('organization_id', organizationId)
+        .eq('status', 'active');
 
-      // Get current month payrolls for salary analysis
-      const payrollsQuery = query(
-        collection(db, PAYROLLS_COLLECTION),
-        where('organizationId', '==', organizationId),
-        where('month', '==', currentMonth),
-        where('year', '==', currentYear)
-      );
-      const payrollsSnapshot = await getDocs(payrollsQuery);
-      const payrolls = payrollsSnapshot.docs.map(doc => doc.data() as Payroll);
-
-      // Department distribution
       const departmentDistribution: { [key: string]: number } = {};
-      employees.forEach(emp => {
+      employees?.forEach(emp => {
         departmentDistribution[emp.department] = (departmentDistribution[emp.department] || 0) + 1;
       });
 
-      // Salary distribution
+      // Get salary distribution
+      const { data: salaries } = await supabase
+        .from('salary_structures')
+        .select('net_salary')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true);
+
       const salaryRanges = [
-        { range: '0-25k', min: 0, max: 25000 },
-        { range: '25k-50k', min: 25000, max: 50000 },
-        { range: '50k-75k', min: 50000, max: 75000 },
-        { range: '75k-100k', min: 75000, max: 100000 },
-        { range: '100k+', min: 100000, max: Infinity }
+        { range: '0-25k', min: 0, max: 25000, count: 0 },
+        { range: '25k-50k', min: 25000, max: 50000, count: 0 },
+        { range: '50k-75k', min: 50000, max: 75000, count: 0 },
+        { range: '75k-100k', min: 75000, max: 100000, count: 0 },
+        { range: '100k+', min: 100000, max: Infinity, count: 0 }
       ];
 
-      const salaryDistribution = salaryRanges.map(range => ({
-        range: range.range,
-        count: payrolls.filter(payroll =>
-          payroll.netPay >= range.min && payroll.netPay < range.max
-        ).length
-      }));
+      salaries?.forEach(salary => {
+        const range = salaryRanges.find(r => salary.net_salary >= r.min && salary.net_salary < r.max);
+        if (range) range.count++;
+      });
 
-      // Calculate attendance rate
-      const totalWorkingDays = payrolls.reduce((sum, payroll) => sum + payroll.workingDays, 0);
-      const totalPresentDays = payrolls.reduce((sum, payroll) => sum + payroll.presentDays, 0);
-      const attendanceRate = totalWorkingDays > 0 ? (totalPresentDays / totalWorkingDays) * 100 : 0;
+      // Calculate attendance rate (simplified)
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      
+      const { data: attendance } = await supabase
+        .from('attendance')
+        .select('status')
+        .eq('organization_id', organizationId)
+        .gte('date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`);
 
-      // Calculate leave utilization
-      const leaveApplicationsQuery = query(
-        collection(db, LEAVE_APPLICATIONS_COLLECTION),
-        where('organizationId', '==', organizationId),
-        where('status', '==', 'approved')
-      );
-      const leaveSnapshot = await getDocs(leaveApplicationsQuery);
-      const approvedLeaves = leaveSnapshot.docs.map(doc => doc.data() as LeaveApplication);
-      const totalLeaveDays = approvedLeaves.reduce((sum, leave) => sum + leave.totalDays, 0);
-      const leaveUtilization = employees.length > 0 ? totalLeaveDays / employees.length : 0;
+      const totalAttendanceRecords = attendance?.length || 0;
+      const presentRecords = attendance?.filter(att => att.status === 'present').length || 0;
+      const attendanceRate = totalAttendanceRecords > 0 ? (presentRecords / totalAttendanceRecords) * 100 : 0;
+
+      // Calculate leave utilization (simplified)
+      const { data: leaveBalances } = await supabase
+        .from('leave_balances')
+        .select('total_entitled, used')
+        .eq('organization_id', organizationId)
+        .eq('year', currentYear);
+
+      const totalEntitled = leaveBalances?.reduce((sum, balance) => sum + balance.total_entitled, 0) || 0;
+      const totalUsed = leaveBalances?.reduce((sum, balance) => sum + balance.used, 0) || 0;
+      const leaveUtilization = totalEntitled > 0 ? (totalUsed / totalEntitled) * 100 : 0;
 
       return {
         departmentDistribution,
-        salaryDistribution,
+        salaryDistribution: salaryRanges,
         attendanceRate,
         leaveUtilization
       };
     } catch (error) {
       console.error('Error fetching employee analytics:', error);
-      throw new Error('Failed to fetch employee analytics');
+      return {
+        departmentDistribution: {},
+        salaryDistribution: [],
+        attendanceRate: 0,
+        leaveUtilization: 0
+      };
     }
   }
 };

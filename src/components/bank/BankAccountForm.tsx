@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { bankService, type BankAccount } from '@/services/bankService';
 import { useAuth } from '@/contexts/AuthContext';
-import { Timestamp } from 'firebase/firestore';
+
 
 import {
   X,
@@ -51,7 +51,7 @@ export default function BankAccountForm({ isOpen, onClose, onSuccess, editingAcc
         balance: editingAccount.balance,
         currency: editingAccount.currency,
         isActive: editingAccount.isActive,
-        openingDate: editingAccount.openingDate.toDate().toISOString().split('T')[0],
+        openingDate: new Date(editingAccount.openingDate).toISOString().split('T')[0],
         ifscCode: editingAccount.ifscCode || '',
         branchName: editingAccount.branchName || '',
         contactNumber: editingAccount.contactNumber || '',
@@ -118,7 +118,7 @@ export default function BankAccountForm({ isOpen, onClose, onSuccess, editingAcc
         balance: formData.balance,
         currency: formData.currency,
         isActive: formData.isActive,
-        openingDate: Timestamp.fromDate(new Date(formData.openingDate)),
+        openingDate: new Date(formData.openingDate).toISOString(),
         userId: user.uid,
         organizationId: user.uid,
         ifscCode: formData.ifscCode.trim(),

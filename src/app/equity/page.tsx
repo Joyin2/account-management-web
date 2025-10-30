@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { equityService, type Partner, type EquityTransaction, type CapitalAccount } from '@/services/equityService';
 import { useAuth } from '@/contexts/AuthContext';
-import { Timestamp } from 'firebase/firestore';
+// Timestamp is now handled as string in Supabase
 import AuthGuard from '@/components/auth/AuthGuard';
 
 import {

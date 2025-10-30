@@ -98,7 +98,7 @@ const Navigation = () => {
                     }`}
                   >
                     <User size={16} />
-                    <span>{userProfile?.firstName || user.email?.split('@')[0] || 'User'}</span>
+                    <span>{userProfile?.fullName || user.email?.split('@')[0] || 'User'}</span>
                   </button>
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
